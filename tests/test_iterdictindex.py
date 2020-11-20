@@ -39,7 +39,7 @@ class TestIterDictIndexer(BaseTestCase):
         self.assertEqual(len(set(meta)), len(index.getMetaIndex().getKeys()))
         for m in meta:
             self.assertTrue(m in index.getMetaIndex().getKeys())
-        self.assertEqual(len(fields), index.getCollectionStatistics().numberOfFields)
+        self.assertEqual(len(fields), index.getCollectionStatistics().getNumberOfFields())
         for f in fields:
             self.assertTrue(f in index.getCollectionStatistics().getFieldNames())
         if index_type is IndexingType.CLASSIC:
@@ -51,15 +51,14 @@ class TestIterDictIndexer(BaseTestCase):
         lex = index.getLexicon()
         post = inv.getPostings(lex.getLexiconEntry('plai'))
         post.next()
-        from jnius import cast
-        post = cast("org.terrier.structures.postings.FieldPosting", post)
+        post = pt.JObject(post, "org.terrier.structures.postings.FieldPosting")
         if 'title' in fields:
-            self.assertEqual(2, post.frequency)
-            self.assertEqual(1, post.fieldFrequencies[0])
-            self.assertEqual(1, post.fieldFrequencies[1])
+            self.assertEqual(2, post.getFrequency())
+            self.assertEqual(1, post.getFieldFrequencies()[0])
+            self.assertEqual(1, post.getFieldFrequencies()[1])
         else:
-            self.assertEqual(1, post.frequency)
-            self.assertEqual(1, post.fieldFrequencies[0])
+            self.assertEqual(1, post.getFrequency())
+            self.assertEqual(1, post.getFieldFrequencies()[0])
 
 
     def test_checkjavaDocIterator(self):

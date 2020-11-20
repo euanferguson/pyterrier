@@ -168,7 +168,7 @@ class RemoteDataset(Dataset):
     def get_index(self):
         import pyterrier as pt
         thedir = self._get_all_files("index")
-        return pt.autoclass("org.terrier.querying.IndexRef").of(os.path.join(thedir, "data.properties"))
+        return pt.JClass("org.terrier.querying.IndexRef").of(os.path.join(thedir, "data.properties"))
 
     def __repr__(self):
         return "RemoteDataset for %s, with %s" % (self.name, str(list(self.locations.keys())))

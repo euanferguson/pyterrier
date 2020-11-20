@@ -1,4 +1,4 @@
-from jnius import autoclass, cast
+from jpype.types import JClass, JObject
 import pandas as pd
 import numpy as np
 from . import tqdm
@@ -24,13 +24,13 @@ def _matchop(query):
     return False
 
 def parse_index_like(index_location):
-    JIR = autoclass('org.terrier.querying.IndexRef')
-    JI = autoclass('org.terrier.structures.Index')
+    JIR = JClass('org.terrier.querying.IndexRef')
+    JI = JClass('org.terrier.structures.Index')
 
     if isinstance(index_location, JIR):
         return index_location
     if isinstance(index_location, JI):
-        return cast('org.terrier.structures.Index', index_location).getIndexRef()
+        return JObject(index_location, 'org.terrier.structures.Index').getIndexRef()
     if isinstance(index_location, str) or issubclass(type(index_location), Indexer):
         if issubclass(type(index_location), Indexer):
             return JIR.of(index_location.path)
@@ -102,7 +102,7 @@ class BatchRetrieve(BatchRetrieveBase):
         super().__init__(kwargs)
         
         self.indexref = parse_index_like(index_location)
-        self.appSetup = autoclass('org.terrier.utility.ApplicationSetup')
+        self.appSetup = JClass('org.terrier.utility.ApplicationSetup')
         self.properties = _mergeDicts(BatchRetrieve.default_properties, properties)
         self.metadata = metadata
 
@@ -125,7 +125,7 @@ class BatchRetrieve(BatchRetrieveBase):
                 raise ValueError("num_results must be None, 0 or positive")
 
 
-        MF = autoclass('org.terrier.querying.ManagerFactory')
+        MF = JClass('org.terrier.querying.ManagerFactory')
         self.manager = MF._from_(self.indexref)
         
 
@@ -154,7 +154,7 @@ class BatchRetrieve(BatchRetrieveBase):
             # Hence as long as one row has the query for each qid, 
             # the rest can be None
             queries = input_results[["qid", "query"]].dropna(axis=0, subset=["query"]).drop_duplicates()
-            RequestContextMatching = autoclass("org.terrier.python.RequestContextMatching")
+            RequestContextMatching = JClass("org.terrier.python.RequestContextMatching")
 
         # make sure queries are a String
         if queries["qid"].dtype == np.int64:
@@ -279,7 +279,7 @@ class TextIndexProcessor(TransformerBase):
         self.verbose = verbose
 
     def transform(self, topics_and_res):
-        from . import DFIndexer, autoclass, IndexFactory
+        from . import DFIndexer, IndexFactory
         from .index import IndexingType
         documents = topics_and_res[["docno", self.body_attr]].drop_duplicates(subset="docno")
         indexref = DFIndexer(None, type=IndexingType.MEMORY, verbose=self.verbose).index(documents[self.body_attr], documents["docno"])
@@ -295,7 +295,7 @@ class TextIndexProcessor(TransformerBase):
             index = index_docs
         else:
             index_background = IndexFactory.of(self.background_indexref)
-            index = autoclass("org.terrier.python.IndexWithBackground")(index_docs, index_background)          
+            index = JClass("org.terrier.python.IndexWithBackground")(index_docs, index_background)
 
         topics = topics_and_res[["qid", "query"]].dropna(axis=0, subset=["query"]).drop_duplicates()
         
@@ -408,7 +408,7 @@ class FeaturesBatchRetrieve(BatchRetrieve):
             # Hence as long as one row has the query for each qid, 
             # the rest can be None
             queries = input_results[["qid", "query"]].dropna(axis=0, subset=["query"]).drop_duplicates()
-            RequestContextMatching = autoclass("org.terrier.python.RequestContextMatching")
+            RequestContextMatching = JClass("org.terrier.python.RequestContextMatching")
 
             if not scores_provided and self.wmodel is None:
                 raise ValueError("We're in re-ranking mode, but input does not have scores, and wmodel is None")
@@ -465,8 +465,8 @@ class FeaturesBatchRetrieve(BatchRetrieve):
                 srq.setControl("matching", ",".join(["FatFeaturedScoringMatching","ScoringMatchingWithFat", srq.getControl("matching")]))
             
             self.manager.runSearchRequest(srq)
-            srq = cast('org.terrier.querying.Request', srq)
-            fres = cast('org.terrier.learning.FeaturedResultSet', srq.getResultSet())
+            srq = JObject(srq, 'org.terrier.querying.Request')
+            fres = JObject(srq.getResultSet(), 'org.terrier.learning.FeaturedResultSet')
             feat_names = fres.getFeatureNames()
 
             docids=fres.getDocids()

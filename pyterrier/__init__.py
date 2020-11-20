@@ -1,7 +1,7 @@
 __version__ = "0.3.0.dev"
 
 import os
-from .bootstrap import _logging, setup_terrier, setup_jnius
+from .bootstrap import _logging, setup_terrier, setup_jpype
 
 import importlib
 
@@ -68,26 +68,25 @@ def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, log
     # get the initial classpath for the JVM
     classpathTrJars = setup_terrier(HOME_DIR, version, boot_packages=boot_packages)
     
-    # Import pyjnius and other classes
-    import jnius_config
-    for jar in classpathTrJars:
-        jnius_config.add_classpath(jar)
-    if jvm_opts is not None:
-        for opt in jvm_opts:
-            jnius_config.add_options(opt)
+    # Import jpype and other classes
+    import jpype
+    from jpype.types import JClass, JObject
+
     if mem is not None:
-        jnius_config.add_options('-Xmx' + str(mem) + 'm')
-    from jnius import autoclass, cast
+        jvm_opts.append('-Xmx' + str(mem) + 'm')
+    # jvm_opts is in format ready to give as varargs to startJVM method
+    # We want convertStrings to be true so that we don't have explicitly cast returned java strings when needed
+    jpype.startJVM(convertStrings=True, classpath=classpathTrJars, *jvm_opts)
 
     # we only accept Java version 11 and newer; so anything starting 1. or 9. is too old
-    java_version = autoclass("java.lang.System").getProperty("java.version")
+    java_version = str(JClass("java.lang.System").getProperty("java.version"))
     if java_version.startswith("1.") or java_version.startswith("9."):
         raise RuntimeError("Pyterrier requires Java 11 or newer, we only found Java version %s;"
             +" install a more recent Java, or change os.environ['JAVA_HOME'] to point to the proper Java installation",
             java_version)
-    
-    properties = autoclass('java.util.Properties')()
-    ApplicationSetup = autoclass('org.terrier.utility.ApplicationSetup')
+
+    properties = JClass('java.util.Properties')()
+    ApplicationSetup = JClass('org.terrier.utility.ApplicationSetup')
 
     from .batchretrieve import BatchRetrieve, FeaturesBatchRetrieve
     from .utils import Utils
@@ -96,8 +95,8 @@ def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, log
     from .pipelines import LTR_pipeline, XGBoostLTR_pipeline, Experiment
 
     # Make imports global
-    globals()["autoclass"] = autoclass
-    globals()["cast"] = cast
+    globals()["JClass"] = JClass
+    globals()["JObject"] = JObject
     globals()["ApplicationSetup"] = ApplicationSetup
 
     
@@ -128,11 +127,12 @@ def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, log
         properties.put("terrier.mvn.coords", pkgs_string)
     ApplicationSetup.bootstrapInitialisation(properties)
 
-    if redirect_io:
-        # this ensures that the python stdout/stderr and the Java are matched
-        redirect_stdouterr()
-    _logging(logging)
-    setup_jnius()
+    # TODO Deal with this
+    # if redirect_io:
+    #     # this ensures that the python stdout/stderr and the Java are matched
+    #     redirect_stdouterr()
+    # _logging(logging)
+    setup_jpype()
 
     globals()["get_dataset"] = get_dataset
     globals()["list_datasets"] = list_datasets
@@ -149,8 +149,8 @@ def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, log
     globals()["Utils"] = Utils
     globals()["LTR_pipeline"] = LTR_pipeline
     globals()["XGBoostLTR_pipeline"] = XGBoostLTR_pipeline
-    globals()["IndexFactory"] = autoclass("org.terrier.structures.IndexFactory")
-    globals()["IndexRef"] = autoclass("org.terrier.querying.IndexRef")
+    globals()["IndexFactory"] = JClass("org.terrier.structures.IndexFactory")
+    globals()["IndexRef"] = JClass("org.terrier.querying.IndexRef")
     globals()["IndexingType"] = IndexingType
 
     firstInit = True
@@ -175,11 +175,10 @@ def started():
     return(firstInit)
 
 def version():
-    from jnius import autoclass
-    return autoclass("org.terrier.Version").VERSION
+    from jpype.types import JClass
+    return JClass("org.terrier.Version").VERSION
 
 def check_version(min):
-    from jnius import autoclass
     from packaging.version import Version
     min = Version(str(min))
     currentVer = Version(version().replace("-SNAPSHOT", ""))
@@ -205,18 +204,18 @@ def set_properties(kwargs):
     ApplicationSetup.bootstrapInitialisation(properties)
 
 def run(cmd, args=[]):
-    from jnius import autoclass
-    autoclass("org.terrier.applications.CLITool").main([cmd] + args)
+    from jpype import JClass
+    JClass("org.terrier.applications.CLITool").main([cmd] + args)
 
 def extend_classpath(mvnpackages):
     assert check_version(5.3), "Terrier 5.3 required for this functionality"
     if isinstance(mvnpackages, str):
         mvnpackages = [mvnpackages]
-    from jnius import autoclass, cast
-    thelist = autoclass("java.util.ArrayList")()
+    from jpype.types import JClass, JObject
+    thelist = JClass("java.util.ArrayList")()
     for pkg in mvnpackages:
         thelist.add(pkg)
     mvnr = ApplicationSetup.getPlugin("MavenResolver")
     assert mvnr is not None
-    mvnr = cast("org.terrier.utility.MavenResolver", mvnr)
+    mvnr = JObject(mvnr, "org.terrier.utility.MavenResolver")
     mvnr.addDependencies(thelist)

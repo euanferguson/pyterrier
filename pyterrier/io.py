@@ -162,10 +162,10 @@ def read_topics(filename, format="trec", **kwargs):
     return SUPPORTED_TOPICS_FORMATS[format](filename, **kwargs)
 
 def _read_topics_trec(file_path, doc_tag="TOP", id_tag="NUM", whitelist=["TITLE"], blacklist=["DESC","NARR"]):
-    from jnius import autoclass
+    from jpype import JClass
     from . import check_version
     assert check_version("5.3")
-    trecquerysource = autoclass('org.terrier.applications.batchquerying.TRECQuery')
+    trecquerysource = JClass('org.terrier.applications.batchquerying.TRECQuery')
     tqs = trecquerysource(
         [file_path], doc_tag, id_tag, whitelist, blacklist,
         # help jnius select the correct constructor 
@@ -194,8 +194,8 @@ def _read_topics_trecxml(filename, tags=["query", "question", "narrative"], toke
     topics=[]
     tree = ET.parse(filename)
     root = tree.getroot()
-    from jnius import autoclass
-    tokeniser = autoclass("org.terrier.indexing.tokenisation.Tokeniser").getTokeniser()
+    from jpype import JClass
+    tokeniser = JClass("org.terrier.indexing.tokenisation.Tokeniser").getTokeniser()
     for child in root.iter('topic'):
         qid = child.attrib["number"]
         query = ""
@@ -221,10 +221,10 @@ def _read_topics_singleline(filepath, tokenise=True):
         pandas.Dataframe with columns=['qid','query']
     """
     rows = []
-    from jnius import autoclass
+    from jpype import JClass
     from . import check_version
     assert check_version("5.3")
-    slqIter = autoclass("org.terrier.applications.batchquerying.SingleLineTRECQuery")(filepath, tokenise)
+    slqIter = JClass("org.terrier.applications.batchquerying.SingleLineTRECQuery")(filepath, tokenise)
     for q in slqIter:
         rows.append([slqIter.getQueryId(), q])
     return pd.DataFrame(rows, columns=["qid", "query"])

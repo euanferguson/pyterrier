@@ -2,8 +2,7 @@
 This file contains all the indexers.
 """
 
-# from jnius import autoclass, cast, PythonJavaClass, java_method
-from jnius import autoclass, PythonJavaClass, java_method, cast
+from jpype import JClass, JObject, JImplements, JOverride
 # from .utils import *
 import pandas as pd
 # import numpy as np
@@ -54,26 +53,26 @@ def run_autoclass():
     global IndexRef
     global IndexFactory
 
-    StringReader = autoclass("java.io.StringReader")
-    HashMap = autoclass("java.util.HashMap")
-    TaggedDocument = autoclass("org.terrier.indexing.TaggedDocument")
-    FlatJSONDocument = autoclass("org.terrier.indexing.FlatJSONDocument")
-    Tokeniser = autoclass("org.terrier.indexing.tokenisation.Tokeniser")
-    TRECCollection = autoclass("org.terrier.indexing.TRECCollection")
-    SimpleFileCollection = autoclass("org.terrier.indexing.SimpleFileCollection")
-    BasicIndexer = autoclass("org.terrier.structures.indexing.classical.BasicIndexer")
-    BlockIndexer = autoclass("org.terrier.structures.indexing.classical.BlockIndexer")
-    BasicSinglePassIndexer = autoclass("org.terrier.structures.indexing.singlepass.BasicSinglePassIndexer")
-    BlockSinglePassIndexer = autoclass("org.terrier.structures.indexing.singlepass.BlockSinglePassIndexer")
-    BasicMemoryIndexer = autoclass("org.terrier.python.MemoryIndexer")
-    Collection = autoclass("org.terrier.indexing.Collection")
-    Arrays = autoclass("java.util.Arrays")
-    Array = autoclass('java.lang.reflect.Array')
-    ApplicationSetup = autoclass('org.terrier.utility.ApplicationSetup')
-    Properties = autoclass('java.util.Properties')
-    CLITool = autoclass("org.terrier.applications.CLITool")
-    IndexRef = autoclass('org.terrier.querying.IndexRef')
-    IndexFactory = autoclass('org.terrier.structures.IndexFactory')
+    StringReader = JClass("java.io.StringReader")
+    HashMap = JClass("java.util.HashMap")
+    TaggedDocument = JClass("org.terrier.indexing.TaggedDocument")
+    FlatJSONDocument = JClass("org.terrier.indexing.FlatJSONDocument")
+    Tokeniser = JClass("org.terrier.indexing.tokenisation.Tokeniser")
+    TRECCollection = JClass("org.terrier.indexing.TRECCollection")
+    SimpleFileCollection = JClass("org.terrier.indexing.SimpleFileCollection")
+    BasicIndexer = JClass("org.terrier.structures.indexing.classical.BasicIndexer")
+    BlockIndexer = JClass("org.terrier.structures.indexing.classical.BlockIndexer")
+    BasicSinglePassIndexer = JClass("org.terrier.structures.indexing.singlepass.BasicSinglePassIndexer")
+    BlockSinglePassIndexer = JClass("org.terrier.structures.indexing.singlepass.BlockSinglePassIndexer")
+    BasicMemoryIndexer = JClass("org.terrier.python.MemoryIndexer")
+    Collection = JClass("org.terrier.indexing.Collection")
+    Arrays = JClass("java.util.Arrays")
+    Array = JClass('java.lang.reflect.Array')
+    ApplicationSetup = JClass('org.terrier.utility.ApplicationSetup')
+    Properties = JClass('java.util.Properties')
+    CLITool = JClass("org.terrier.applications.CLITool")
+    IndexRef = JClass('org.terrier.querying.IndexRef')
+    IndexFactory = JClass('org.terrier.structures.IndexFactory')
 
 
 # Using enum class create enumerations
@@ -105,7 +104,7 @@ class Indexer:
             "trec.collection.class": "TRECCollection",
     }
 
-    def __init__(self, index_path, *args, blocks=False, overwrite=False, verbose=False, type=IndexingType.CLASSIC, **kwargs):
+    def __init__(self, index_path, *args, blocks=False, overwrite=False, type=IndexingType.CLASSIC, **kwargs):
         """
         Init method
 
@@ -130,7 +129,6 @@ class Indexer:
         self.properties = Properties()
         self.setProperties(**self.default_properties)
         self.overwrite = overwrite
-        self.verbose = verbose
 
     def setProperties(self, **kwargs):
         """
@@ -276,10 +274,10 @@ class DFIndexUtils:
                     value = ""
                 hashmap.put(column, value)
             return(TaggedDocument(StringReader(text_row), hashmap, Tokeniser.getTokeniser()))
-        
+
         df = pd.DataFrame.from_dict(all_metadata, orient="columns")
         lengths = DFIndexUtils.get_column_lengths(df)
-        
+
         return (
             PythonListIterator(
                 text.values,
@@ -317,7 +315,7 @@ class DFIndexer(Indexer):
         self.checkIndexExists()
         # we need to prevent collectionIterator from being GCd, so assign to a variable that outlives the indexer
         collectionIterator, meta_lengths = DFIndexUtils.create_javaDocIterator(text, *args, **kwargs)
-        
+
         # generate the metadata properties, set their lengths automatically
         mprop1=""
         mprop2=""
@@ -339,12 +337,9 @@ class DFIndexer(Indexer):
         ApplicationSetup.setProperty("indexer.meta.forward.keylens", mprop2[:-1])
 
         # make a Collection class for Terrier
-        javaDocCollection = autoclass("org.terrier.python.CollectionFromDocumentIterator")(collectionIterator)
-        if self.verbose:
-            javaDocCollection = TQDMSizeCollection(javaDocCollection, len(text)) 
+        javaDocCollection = JClass("org.terrier.python.CollectionFromDocumentIterator")(collectionIterator)
         index = self.createIndexer()
-        index.index(autoclass("org.terrier.python.PTUtils").makeCollection(javaDocCollection))
-        javaDocCollection.close()
+        index.index([javaDocCollection])
         self.index_called = True
         collectionIterator = None
 
@@ -362,11 +357,10 @@ class DFIndexer(Indexer):
             return index.getIndex().getIndexRef()
         return IndexRef.of(self.index_dir + "/data.properties")
 
-class PythonListIterator(PythonJavaClass):
-    __javainterfaces__ = ['java/util/Iterator']
+@JImplements('java.util.Iterator')
+class PythonListIterator:
 
     def __init__(self, text, meta, convertFn, len=None, index=0):
-        super(PythonListIterator, self).__init__()
         self.text = text
         self.meta = meta
         self.index = index
@@ -376,21 +370,21 @@ class PythonListIterator(PythonJavaClass):
         else:
             self.len = len
 
-    @java_method('()V')
-    def remove():
-        # 1
-        pass
+    # @java_method('()V')
+    # def remove():
+    #     # 1
+    #     pass
+    #
+    # @java_method('(Ljava/util/function/Consumer;)V')
+    # def forEachRemaining(action):
+    #     # 1
+    #     pass
 
-    @java_method('(Ljava/util/function/Consumer;)V')
-    def forEachRemaining(action):
-        # 1
-        pass
-
-    @java_method('()Z')
+    @JOverride
     def hasNext(self):
         return self.index < self.len
 
-    @java_method('()Ljava/lang/Object;')
+    @JOverride
     def next(self):
         text = self.text[self.index]
         meta = self.meta.__next__()
@@ -399,32 +393,24 @@ class PythonListIterator(PythonJavaClass):
             return self.convertFn(text, meta)
         return [text, meta]
 
-class FlatJSONDocumentIterator(PythonJavaClass):
-    __javainterfaces__ = ['java/util/Iterator']
+@JImplements('java.util.Iterator')
+class FlatJSONDocumentIterator:
 
     def __init__(self, it):
-        super(FlatJSONDocumentIterator, self).__init__()
-        if FlatJSONDocument is None:
-            run_autoclass()
-        self._it = it
-        # easiest way to support hasNext is just to start consuming right away, I think
-        self._next = next(self._it, StopIteration)
+        if not hasattr(self, 'initialised'):
+            self.initialised = True
+        else:
+            if FlatJSONDocument is None:
+                run_autoclass()
+            self._it = it
+            self._next = next(self._it, StopIteration)
+            initcall = 1
 
-    @java_method('()V')
-    def remove():
-        # 1
-        pass
-
-    @java_method('(Ljava/util/function/Consumer;)V')
-    def forEachRemaining(action):
-        # 1
-        pass
-
-    @java_method('()Z')
+    @JOverride
     def hasNext(self):
         return self._next is not StopIteration
 
-    @java_method('()Ljava/lang/Object;')
+    @JOverride
     def next(self):
         result = self._next
         self._next = next(self._it, StopIteration)
@@ -467,7 +453,7 @@ class IterDictIndexer(Indexer):
         })
         # we need to prevent collectionIterator from being GCd
         collectionIterator = FlatJSONDocumentIterator(iter(it)) # force it to be iter
-        javaDocCollection = autoclass("org.terrier.python.CollectionFromDocumentIterator")(collectionIterator)
+        javaDocCollection = JClass("org.terrier.python.CollectionFromDocumentIterator")(collectionIterator)
         index = self.createIndexer()
         index.index([javaDocCollection])
         self.index_called = True
@@ -513,7 +499,7 @@ class TRECCollectionIndexer(Indexer):
                 collection = TRECCollectionIndexer.type_to_class[collection]
         self.collection = collection.split(",")
         self.verbose = verbose
-    
+
 
     def index(self, files_path):
         """
@@ -525,17 +511,17 @@ class TRECCollectionIndexer(Indexer):
         self.checkIndexExists()
         index = self.createIndexer()
         asList = self.createAsList(files_path)
-        cls_string = autoclass("java.lang.String")._class
-        cls_list = autoclass("java.util.List")._class
-        colObj = autoclass("org.terrier.indexing.CollectionFactory").loadCollections(
+        cls_string = JClass("java.lang.String")
+        cls_list = JClass("java.util.List")
+        colObj = JClass("org.terrier.indexing.CollectionFactory").loadCollections(
             self.collection,
             [cls_list, cls_string, cls_string, cls_string],
-            [asList, autoclass("org.terrier.utility.TagSet").TREC_DOC_TAGS, "", ""])
+            [asList, JClass("org.terrier.utility.TagSet").TREC_DOC_TAGS, "", ""])
         collsArray = [colObj]
-        if self.verbose and isinstance(colObj, autoclass("org.terrier.indexing.MultiDocumentFileCollection")):
-            colObj = cast("org.terrier.indexing.MultiDocumentFileCollection", colObj)
+        if self.verbose and isinstance(colObj, JClass("org.terrier.indexing.MultiDocumentFileCollection")):
+            colObj = JObject(colObj, "org.terrier.indexing.MultiDocumentFileCollection")
             colObj = TQDMCollection(colObj)
-            collsArray = autoclass("org.terrier.python.PTUtils").makeCollection(colObj)
+            collsArray = JClass("org.terrier.python.PTUtils").makeCollection(colObj)
         index.index(collsArray)
         colObj.close()
         self.index_called = True
@@ -579,54 +565,18 @@ class FilesIndexer(Indexer):
             return index.getIndex().getIndexRef()
         return IndexRef.of(self.index_dir + "/data.properties")
 
-class TQDMSizeCollection(PythonJavaClass):
-    __javainterfaces__ = ['org/terrier/indexing/Collection']
-
-    def __init__(self, collection, total):
-        super(TQDMSizeCollection, self).__init__()
-        self.collection = collection
-        from . import tqdm
-        self.pbar = tqdm(total=total, unit="documents")
-    
-    @java_method('()Z')
-    def nextDocument(self):
-        rtr = self.collection.nextDocument()
-        self.pbar.update()
-        return rtr
-
-    @java_method('()V')
-    def reset(self):
-        self.pbar.reset()
-        self.collection.reset()
-
-    @java_method('()V')
-    def close(self):
-        self.pbar.close()
-        self.collection.close()
-
-    @java_method('()Z')
-    def endOfCollection(self):
-        return self.collection.endOfCollection()
-
-    @java_method('()Lorg/terrier/indexing/Document;')
-    def getDocument(self):
-        return self.collection.getDocument()
-        
-
-
-class TQDMCollection(PythonJavaClass):
-    __javainterfaces__ = ['org/terrier/indexing/Collection']
+@JImplements('org.terrier.indexing.Collection')
+class TQDMCollection:
 
     def __init__(self, collection):
-        super(TQDMCollection, self).__init__()
-        assert isinstance(collection, autoclass("org.terrier.indexing.MultiDocumentFileCollection"))
+        assert isinstance(collection, JClass("org.terrier.indexing.MultiDocumentFileCollection"))
         self.collection = collection
         size = self.collection.FilesToProcess.size()
-        from . import tqdm
+        from tqdm import tqdm
         self.pbar = tqdm(total=size, unit="files")
         self.last = -1
-    
-    @java_method('()Z')
+
+    @JOverride
     def nextDocument(self):
         rtr = self.collection.nextDocument()
         filenum = self.collection.FileNumber
@@ -635,21 +585,21 @@ class TQDMCollection(PythonJavaClass):
             self.last = filenum
         return rtr
 
-    @java_method('()V')
+    @JOverride
     def reset(self):
         self.pbar.reset()
         self.collection.reset()
 
-    @java_method('()V')
+    @JOverride
     def close(self):
         self.pbar.close()
         self.collection.close()
 
-    @java_method('()Z')
+    @JOverride
     def endOfCollection(self):
         return self.collection.endOfCollection()
 
-    @java_method('()Lorg/terrier/indexing/Document;')
+    @JOverride
     def getDocument(self):
         return self.collection.getDocument()
-        
+
