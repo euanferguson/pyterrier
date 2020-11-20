@@ -571,7 +571,7 @@ class TQDMCollection:
     def __init__(self, collection):
         assert isinstance(collection, JClass("org.terrier.indexing.MultiDocumentFileCollection"))
         self.collection = collection
-        size = self.collection.FilesToProcess.size()
+        size = self.collection.getSize()
         from tqdm import tqdm
         self.pbar = tqdm(total=size, unit="files")
         self.last = -1
@@ -579,7 +579,7 @@ class TQDMCollection:
     @JOverride
     def nextDocument(self):
         rtr = self.collection.nextDocument()
-        filenum = self.collection.FileNumber
+        filenum = self.collection.getFileNumber()
         if filenum > self.last:
             self.pbar.update(filenum - self.last)
             self.last = filenum
