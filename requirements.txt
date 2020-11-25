@@ -3,7 +3,7 @@ pandas
 wget
 pytrec_eval
 tqdm
-JPype=1.1.1
+JPype1==1.1.1
 matchpy
 sklearn
 deprecation
