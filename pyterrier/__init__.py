@@ -127,11 +127,10 @@ def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, log
         properties.put("terrier.mvn.coords", pkgs_string)
     ApplicationSetup.bootstrapInitialisation(properties)
 
-    # TODO Deal with this
-    # if redirect_io:
-    #     # this ensures that the python stdout/stderr and the Java are matched
-    #     redirect_stdouterr()
-    # _logging(logging)
+    if redirect_io:
+        # this ensures that the python stdout/stderr and the Java are matched
+        redirect_stdouterr()
+    _logging(logging)
     setup_jpype()
 
     globals()["get_dataset"] = get_dataset

@@ -370,16 +370,6 @@ class PythonListIterator:
         else:
             self.len = len
 
-    # @java_method('()V')
-    # def remove():
-    #     # 1
-    #     pass
-    #
-    # @java_method('(Ljava/util/function/Consumer;)V')
-    # def forEachRemaining(action):
-    #     # 1
-    #     pass
-
     @JOverride
     def hasNext(self):
         return self.index < self.len
@@ -404,7 +394,6 @@ class FlatJSONDocumentIterator:
                 run_autoclass()
             self._it = it
             self._next = next(self._it, StopIteration)
-            initcall = 1
 
     @JOverride
     def hasNext(self):
