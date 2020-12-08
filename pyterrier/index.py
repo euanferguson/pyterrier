@@ -2,7 +2,7 @@
 This file contains all the indexers.
 """
 
-from jpype import JClass, JObject, JImplements, JOverride
+import pyterrier as pt
 # from .utils import *
 import pandas as pd
 # import numpy as np
@@ -53,26 +53,26 @@ def run_autoclass():
     global IndexRef
     global IndexFactory
 
-    StringReader = JClass("java.io.StringReader")
-    HashMap = JClass("java.util.HashMap")
-    TaggedDocument = JClass("org.terrier.indexing.TaggedDocument")
-    FlatJSONDocument = JClass("org.terrier.indexing.FlatJSONDocument")
-    Tokeniser = JClass("org.terrier.indexing.tokenisation.Tokeniser")
-    TRECCollection = JClass("org.terrier.indexing.TRECCollection")
-    SimpleFileCollection = JClass("org.terrier.indexing.SimpleFileCollection")
-    BasicIndexer = JClass("org.terrier.structures.indexing.classical.BasicIndexer")
-    BlockIndexer = JClass("org.terrier.structures.indexing.classical.BlockIndexer")
-    BasicSinglePassIndexer = JClass("org.terrier.structures.indexing.singlepass.BasicSinglePassIndexer")
-    BlockSinglePassIndexer = JClass("org.terrier.structures.indexing.singlepass.BlockSinglePassIndexer")
-    BasicMemoryIndexer = JClass("org.terrier.python.MemoryIndexer")
-    Collection = JClass("org.terrier.indexing.Collection")
-    Arrays = JClass("java.util.Arrays")
-    Array = JClass('java.lang.reflect.Array')
-    ApplicationSetup = JClass('org.terrier.utility.ApplicationSetup')
-    Properties = JClass('java.util.Properties')
-    CLITool = JClass("org.terrier.applications.CLITool")
-    IndexRef = JClass('org.terrier.querying.IndexRef')
-    IndexFactory = JClass('org.terrier.structures.IndexFactory')
+    StringReader = pt.Class("java.io.StringReader")
+    HashMap = pt.Class("java.util.HashMap")
+    TaggedDocument = pt.Class("org.terrier.indexing.TaggedDocument")
+    FlatJSONDocument = pt.Class("org.terrier.indexing.FlatJSONDocument")
+    Tokeniser = pt.Class("org.terrier.indexing.tokenisation.Tokeniser")
+    TRECCollection = pt.Class("org.terrier.indexing.TRECCollection")
+    SimpleFileCollection = pt.Class("org.terrier.indexing.SimpleFileCollection")
+    BasicIndexer = pt.Class("org.terrier.structures.indexing.classical.BasicIndexer")
+    BlockIndexer = pt.Class("org.terrier.structures.indexing.classical.BlockIndexer")
+    BasicSinglePassIndexer = pt.Class("org.terrier.structures.indexing.singlepass.BasicSinglePassIndexer")
+    BlockSinglePassIndexer = pt.Class("org.terrier.structures.indexing.singlepass.BlockSinglePassIndexer")
+    BasicMemoryIndexer = pt.Class("org.terrier.python.MemoryIndexer")
+    Collection = pt.Class("org.terrier.indexing.Collection")
+    Arrays = pt.Class("java.util.Arrays")
+    Array = pt.Class('java.lang.reflect.Array')
+    ApplicationSetup = pt.Class('org.terrier.utility.ApplicationSetup')
+    Properties = pt.Class('java.util.Properties')
+    CLITool = pt.Class("org.terrier.applications.CLITool")
+    IndexRef = pt.Class('org.terrier.querying.IndexRef')
+    IndexFactory = pt.Class('org.terrier.structures.IndexFactory')
 
 
 # Using enum class create enumerations
@@ -337,7 +337,7 @@ class DFIndexer(Indexer):
         ApplicationSetup.setProperty("indexer.meta.forward.keylens", mprop2[:-1])
 
         # make a Collection class for Terrier
-        javaDocCollection = JClass("org.terrier.python.CollectionFromDocumentIterator")(collectionIterator)
+        javaDocCollection = pt.Class("org.terrier.python.CollectionFromDocumentIterator")(collectionIterator)
         index = self.createIndexer()
         index.index([javaDocCollection])
         self.index_called = True
@@ -442,7 +442,7 @@ class IterDictIndexer(Indexer):
         })
         # we need to prevent collectionIterator from being GCd
         collectionIterator = FlatJSONDocumentIterator(iter(it)) # force it to be iter
-        javaDocCollection = JClass("org.terrier.python.CollectionFromDocumentIterator")(collectionIterator)
+        javaDocCollection = pt.Class("org.terrier.python.CollectionFromDocumentIterator")(collectionIterator)
         index = self.createIndexer()
         index.index([javaDocCollection])
         self.index_called = True
@@ -500,17 +500,17 @@ class TRECCollectionIndexer(Indexer):
         self.checkIndexExists()
         index = self.createIndexer()
         asList = self.createAsList(files_path)
-        cls_string = JClass("java.lang.String")
-        cls_list = JClass("java.util.List")
-        colObj = JClass("org.terrier.indexing.CollectionFactory").loadCollections(
+        cls_string = pt.Class("java.lang.String")
+        cls_list = pt.Class("java.util.List")
+        colObj = pt.Class("org.terrier.indexing.CollectionFactory").loadCollections(
             self.collection,
             [cls_list, cls_string, cls_string, cls_string],
-            [asList, JClass("org.terrier.utility.TagSet").TREC_DOC_TAGS, "", ""])
+            [asList, pt.Class("org.terrier.utility.TagSet").TREC_DOC_TAGS, "", ""])
         collsArray = [colObj]
-        if self.verbose and isinstance(colObj, JClass("org.terrier.indexing.MultiDocumentFileCollection")):
-            colObj = JObject(colObj, "org.terrier.indexing.MultiDocumentFileCollection")
+        if self.verbose and isinstance(colObj, pt.Class("org.terrier.indexing.MultiDocumentFileCollection")):
+            colObj = pt.Cast(colObj, "org.terrier.indexing.MultiDocumentFileCollection")
             colObj = TQDMCollection(colObj)
-            collsArray = JClass("org.terrier.python.PTUtils").makeCollection(colObj)
+            collsArray = pt.Class("org.terrier.python.PTUtils").makeCollection(colObj)
         index.index(collsArray)
         colObj.close()
         self.index_called = True

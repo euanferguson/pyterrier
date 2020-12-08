@@ -12,9 +12,13 @@ TERRIER_PKG = "org.terrier"
 def setup_logging(level):
     logging(level)
 
-def logging(level):
-    from jpype import JClass
-    JClass("org.terrier.python.PTUtils").setLogLevel(level, None)
+def logging(level, use_jpype):
+    if use_jpype:
+        from jpype import JClass
+        JClass("org.terrier.python.PTUtils").setLogLevel(level, None)
+    else:
+        from jnius import autoclass
+        autoclass("org.terrier.python.PTUtils").setLogLevel(level, None)
 # make an alias
 _logging = logging
 

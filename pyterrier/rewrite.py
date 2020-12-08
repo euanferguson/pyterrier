@@ -5,10 +5,10 @@ from .transformer import TransformerBase, Symbol
 from . import tqdm
 from warnings import warn
 
-TerrierQLParser = pt.JClass("org.terrier.querying.TerrierQLParser")()
-TerrierQLToMatchingQueryTerms = pt.JClass("org.terrier.querying.TerrierQLToMatchingQueryTerms")()
-QueryResultSet = pt.JClass("org.terrier.matching.QueryResultSet")
-DependenceModelPreProcess = pt.JClass("org.terrier.querying.DependenceModelPreProcess")
+TerrierQLParser = pt.Class("org.terrier.querying.TerrierQLParser")()
+TerrierQLToMatchingQueryTerms = pt.Class("org.terrier.querying.TerrierQLToMatchingQueryTerms")()
+QueryResultSet = pt.Class("org.terrier.matching.QueryResultSet")
+DependenceModelPreProcess = pt.Class("org.terrier.querying.DependenceModelPreProcess")
 
 class SDM(TransformerBase):
     '''
@@ -26,7 +26,7 @@ class SDM(TransformerBase):
         self.remove_stopwords = remove_stopwords
         from . import check_version
         assert check_version("5.3")
-        self.ApplyTermPipeline_stopsonly = pt.JClass("org.terrier.querying.ApplyTermPipeline")("Stopwords")
+        self.ApplyTermPipeline_stopsonly = pt.Class("org.terrier.querying.ApplyTermPipeline")("Stopwords")
 
     def transform(self, topics_and_res):
         results = []
@@ -39,7 +39,7 @@ class SDM(TransformerBase):
             qid = row.qid
             query = row.query
             # parse the querying into a MQT
-            rq = pt.JClass("org.terrier.querying.Request")()
+            rq = pt.Class("org.terrier.querying.Request")()
             rq.setQueryID(qid)
             rq.setOriginalQuery(query)
             TerrierQLParser.process(None, rq)
@@ -81,16 +81,16 @@ class QueryExpansion(TransformerBase):
         super().__init__(**kwargs)
         self.verbose = verbose
         if isinstance(qeclass, str):
-            self.qe = pt.JClass(qeclass)()
+            self.qe = pt.Class(qeclass)()
         else:
             self.qe = qeclass
         self.indexref = parse_index_like(index_like)
         for k,v in properties.items():
             pt.ApplicationSetup.setProperty(k, str(v))
-        self.applytp = pt.JClass("org.terrier.querying.ApplyTermPipeline")()
+        self.applytp = pt.Class("org.terrier.querying.ApplyTermPipeline")()
         self.fb_terms = fb_terms
         self.fb_docs = fb_docs
-        self.manager = pt.JClass("org.terrier.querying.ManagerFactory")._from_(self.indexref)
+        self.manager = pt.Class("org.terrier.querying.ManagerFactory")._from_(self.indexref)
 
     def _populate_resultset(self, topics_and_res, qid, index):
         
@@ -141,7 +141,7 @@ class QueryExpansion(TransformerBase):
             qid = row.qid
             query = row.query
             srq = self.manager.newSearchRequest(qid, query)
-            rq = pt.JObject(srq, "org.terrier.querying.Request")
+            rq = pt.Cast(srq, "org.terrier.querying.Request")
             self.qe.configureIndex(rq.getIndex())
             self._configure_request(rq)
 
@@ -206,7 +206,7 @@ class RM3(QueryExpansion):
                 break
         assert prf_found, 'terrier-prf jar not found: you should start Pyterrier with '\
             + 'pt.init(boot_packages=["org.terrier:terrier-prf:0.0.1-SNAPSHOT"])'
-        rm = pt.JClass("org.terrier.querying.RM3")()
+        rm = pt.Class("org.terrier.querying.RM3")()
         self.fb_terms = fb_terms
         self.fb_docs = fb_docs
         kwargs["qeclass"] = rm
@@ -236,7 +236,7 @@ class AxiomaticQE(QueryExpansion):
                 break
         assert prf_found, 'terrier-prf jar not found: you should start Pyterrier with '\
             + 'pt.init(boot_packages=["org.terrier:terrier-prf:0.0.1-SNAPSHOT"])'
-        rm = pt.JClass("org.terrier.querying.AxiomaticQE")()
+        rm = pt.Class("org.terrier.querying.AxiomaticQE")()
         self.fb_terms = fb_terms
         self.fb_docs = fb_docs
         kwargs["qeclass"] = rm

@@ -49,8 +49,8 @@ class TestBackground(BaseTestCase):
         indexref_big = pt.get_dataset("vaswani").get_index()
         index_big = pt.IndexFactory.of(indexref_big)
 
-        stopwords = pt.JClass("org.terrier.terms.Stopwords")(None)
-        stemmer = pt.JClass("org.terrier.terms.PorterStemmer")(None)
+        stopwords = pt.Class("org.terrier.terms.Stopwords")(None)
+        stemmer = pt.Class("org.terrier.terms.PorterStemmer")(None)
 
         q = "MATHEMATICAL ANALYSIS AND DESIGN DETAILS OF WAVEGUIDE FED MICROWAVE RADIATIONS"
         self.assertEqual("1048", index_big.getMetaIndex().getItem("docno", 1047))
@@ -88,7 +88,7 @@ class TestBackground(BaseTestCase):
             self.assertTrue(np.array_equal(rtr1["score"].values, rtrall["score"].values))
         
         _check_index(index1)
-        _check_index(pt.JClass("org.terrier.python.IndexWithBackground")(index1, index_big))
+        _check_index(pt.Class("org.terrier.python.IndexWithBackground")(index1, index_big))
 
     def test_itM(self):
         self._test_it(pt.index.IndexingType.MEMORY)
@@ -130,7 +130,7 @@ class TestBackground(BaseTestCase):
             index2 = pt.IndexFactory.of(indexref2)
             self.assertEqual(1, index2.getCollectionStatistics().getNumberOfDocuments())
 
-            index_combined = pt.JClass("org.terrier.python.IndexWithBackground")(index2, index1)
+            index_combined = pt.Class("org.terrier.python.IndexWithBackground")(index2, index1)
             self.assertEqual(3, index_combined.getCollectionStatistics().getNumberOfDocuments())
 
             self.assertEqual(1, index_combined.getLexicon()["test"].getFrequency())

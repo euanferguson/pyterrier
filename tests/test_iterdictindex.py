@@ -51,7 +51,7 @@ class TestIterDictIndexer(BaseTestCase):
         lex = index.getLexicon()
         post = inv.getPostings(lex.getLexiconEntry('plai'))
         post.next()
-        post = pt.JObject(post, "org.terrier.structures.postings.FieldPosting")
+        post = pt.Cast(post, "org.terrier.structures.postings.FieldPosting")
         if 'title' in fields:
             self.assertEqual(2, post.getFrequency())
             self.assertEqual(1, post.getFieldFrequencies()[0])

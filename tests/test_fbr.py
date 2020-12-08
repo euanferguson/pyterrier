@@ -10,7 +10,7 @@ class TestFeaturesBatchRetrieve(BaseTestCase):
         if not pt.check_version("5.4"):
             self.skipTest("Requires Terrier 5.4")
         # this test examines the use of ScoringMatchingWithFat 
-        JIR = pt.JClass('org.terrier.querying.IndexRef')
+        JIR = pt.Class('org.terrier.querying.IndexRef')
         indexref = JIR.of(self.here + "/fixtures/index/data.properties")
         # we only want a candidate set of 2 documents
         firstpass = pt.BatchRetrieve(indexref, wmodel="BM25") % 2
@@ -53,7 +53,7 @@ class TestFeaturesBatchRetrieve(BaseTestCase):
         if not pt.check_version("5.4"):
             self.skipTest("Requires Terrier 5.4")
         # this test examines the use of ScoringMatchingWithFat, using a particular case known to with Terrier 5.3 
-        JIR = pt.JClass('org.terrier.querying.IndexRef')
+        JIR = pt.Class('org.terrier.querying.IndexRef')
         indexref = JIR.of(self.here + "/fixtures/index/data.properties")
         # we only want a candidate set of 3 documents
         firstpass = pt.BatchRetrieve(indexref, wmodel="BM25") % 3
@@ -87,7 +87,7 @@ class TestFeaturesBatchRetrieve(BaseTestCase):
             self.assertAlmostEqual(result1F_map[docno], result2_map[docno], msg="feature score mismatch at rank %d for docno %s" % (rank, docno), places=4)
 
     def test_fbr_ltr(self):
-        JIR = pt.JClass('org.terrier.querying.IndexRef')
+        JIR = pt.Class('org.terrier.querying.IndexRef')
         indexref = JIR.of(self.here + "/fixtures/index/data.properties")
         retr = pt.FeaturesBatchRetrieve(indexref, ["WMODEL:PL2"], wmodel="DPH")
         topics = pt.io.read_topics(self.here + "/fixtures/vaswani_npl/query-text.trec").head(3)
@@ -100,7 +100,7 @@ class TestFeaturesBatchRetrieve(BaseTestCase):
         RandomForestClassifier(n_estimators=10).fit(np.stack(res["features"]), res["label"])
 
     def test_fbr(self):
-        JIR = pt.JClass('org.terrier.querying.IndexRef')
+        JIR = pt.Class('org.terrier.querying.IndexRef')
         indexref = JIR.of(self.here + "/fixtures/index/data.properties")
         retr = pt.FeaturesBatchRetrieve(indexref, ["WMODEL:PL2"], wmodel="DPH")
         input = pd.DataFrame([["1", "Stability"]], columns=['qid', 'query'])
