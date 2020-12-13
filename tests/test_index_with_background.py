@@ -15,7 +15,7 @@ class TestBackground(BaseTestCase):
         direct = index.getDirectIndex()
         lexicon = index.getLexicon()
         for p in direct.getPostings(index.getDocumentIndex().getDocumentEntry(docid)):
-            if isinstance(lexicon, pt.JClass("org.terrier.structures.MapLexicon")):
+            if isinstance(lexicon, pt.Class("org.terrier.structures.MapLexicon")):
                 rtr[lexicon.getLexiconEntryById(p.getId()).getKey()] = p.getFrequency()
             else:
                 rtr[lexicon.getLexiconEntry(p.getId()).getKey()] = p.getFrequency()
@@ -75,13 +75,17 @@ class TestBackground(BaseTestCase):
                 self.assertEqual(contents_big[t], p.getFrequency())
                 self.assertEqual(p.next(), p.EOL)
 
-            from jpype import JException
+            if pt.use_jpype:
+                from jpype import JException as JavaException
+            else:
+                from jnius import JavaException
+
             try:
                 br1 = pt.BatchRetrieve(index_small, wmodel="Tf")
                 brall = pt.BatchRetrieve(index_big, wmodel="Tf")
                 with_doc = pd.DataFrame([["q1", q, "1048", 1047]], columns=["qid", "query", "docno", "docid"])
                 rtr1 = br1.transform(q)
-            except JException as ja:
+            except JavaException as ja:
                 print(ja.stacktrace)
                 raise ja
             rtrall = brall(with_doc)            
@@ -118,7 +122,11 @@ class TestBackground(BaseTestCase):
             'text': ['test wave']
         })
 
-        from jpype import JException
+        if pt.use_jpype:
+            from jpype import JException as JavaException
+        else:
+            from jnius import JavaException
+
         try:
 
             pd_indexer2 = pt.DFIndexer(tempfile.mkdtemp(), type=type)
@@ -140,6 +148,6 @@ class TestBackground(BaseTestCase):
             self.assertEqual(1, index_combined.getLexicon()["wave"].getFrequency())
             
 
-        except JException as ja:
+        except JavaException as ja:
             print(ja.stacktrace)
             raise ja

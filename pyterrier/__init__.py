@@ -1,7 +1,7 @@
 __version__ = "0.3.0.dev"
 
 import os
-from .bootstrap import _logging, setup_terrier, setup_jpype
+from .bootstrap import _logging, setup_terrier, setup_java_bridge
 
 import importlib
 
@@ -25,7 +25,7 @@ tqdm = None
 HOME_DIR = None
 use_jpype = None
 
-def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, logging='WARN', home_dir=None, boot_packages=[], tqdm=None, use_jpype=True):
+def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, logging='WARN', home_dir=None, boot_packages=[], tqdm=None, java_bridge='jpype'):
     """
     Function necessary to be called before Terrier classes and methods can be used.
     Loads the Terrier.jar file and imports classes. Also finds the correct version of Terrier to download if no version is specified.
@@ -54,6 +54,15 @@ def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, log
     global firstInit
     global file_path
     global HOME_DIR
+    global use_jpype
+
+    if java_bridge.lower() == 'jpype':
+        use_jpype = True
+    elif java_bridge.lower() == 'pyjnius':
+        use_jpype = False
+    else:
+        raise RuntimeError("%s is not a valid java bridge for PyTerrier, it only supports 'jpype' or 'pyjnius'",
+                           java_bridge)
 
     # we keep a local directory
     if home_dir is not None:
@@ -110,8 +119,18 @@ def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, log
             jnius_config.add_options('-Xmx' + str(mem) + 'm')
         from jnius import autoclass, cast
 
+        # we only accept Java version 11 and newer; so anything starting 1. or 9. is too old
+        java_version = autoclass("java.lang.System").getProperty("java.version")
+        if java_version.startswith("1.") or java_version.startswith("9."):
+            raise RuntimeError("Pyterrier requires Java 11 or newer, we only found Java version %s;"
+                               + " install a more recent Java, or change os.environ['JAVA_HOME'] to point to the proper Java installation",
+                               java_version)
+
+        properties = autoclass('java.util.Properties')()
+        ApplicationSetup = autoclass('org.terrier.utility.ApplicationSetup')
+
         def jnius_cast(value, cast_type):
-            cast(cast_type, value)
+            return cast(cast_type, value)
 
         # Alias Jpype class and cast functions
         globals()["Class"] = autoclass
@@ -161,8 +180,8 @@ def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, log
     if redirect_io:
         # this ensures that the python stdout/stderr and the Java are matched
         redirect_stdouterr()
-    _logging(logging)
-    setup_jpype()
+    _logging(logging, use_jpype)
+    setup_java_bridge(use_jpype)
 
     globals()["get_dataset"] = get_dataset
     globals()["list_datasets"] = list_datasets
@@ -218,7 +237,7 @@ def check_version(min):
 
 def redirect_stdouterr():
     from . import bootstrap
-    bootstrap.redirect_stdouterr()
+    bootstrap.redirect_stdouterr(use_jpype)
 
 def logging(level):
     from . import bootstrap

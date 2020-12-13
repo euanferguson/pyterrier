@@ -198,9 +198,13 @@ class RM3(QueryExpansion):
         #    pt.extend_classpath("org.terrier:terrier-prf")
         #    terrier_prf_package_loaded = True
         #rm = pt.ApplicationSetup.getClass("org.terrier.querying.RM3").newInstance()
-        import jpype
+        if pt.use_jpype:
+            from jpype import getClassPath as get_classpath
+        else:
+            from jnius_config import get_classpath
+
         prf_found = False
-        for j in jpype.getClassPath():
+        for j in get_classpath():
             if "terrier-prf" in j:
                 prf_found = True
                 break
@@ -228,9 +232,13 @@ class AxiomaticQE(QueryExpansion):
         #    pt.extend_classpath("org.terrier:terrier-prf")
         #    terrier_prf_package_loaded = True
         #rm = pt.ApplicationSetup.getClass("org.terrier.querying.RM3").newInstance()
-        import jpype
+        if pt.use_jpype:
+            from jpype import getClassPath as get_classpath
+        else:
+            from jnius_config import get_classpath as classpath
+
         prf_found = False
-        for j in jpype.getClassPath():
+        for j in classpath():
             if "terrier-prf" in j:
                 prf_found = True
                 break

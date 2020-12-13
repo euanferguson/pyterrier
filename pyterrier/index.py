@@ -31,7 +31,7 @@ CLITool = None
 IndexRef = None
 IndexFactory = None
 
-def run_autoclass():
+def run_class():
     global StringReader
     global HashMap
     global TaggedDocument
@@ -115,7 +115,7 @@ class Indexer:
             type (IndexingType): the specific indexing procedure to use. Default is IndexingType.CLASSIC.
         """
         if StringReader is None:
-            run_autoclass()
+            run_class()
         if type is IndexingType.MEMORY:
             self.path = None
         else:
@@ -240,7 +240,7 @@ class DFIndexUtils:
     @staticmethod
     def create_javaDocIterator(text, *args, **kwargs):
         if HashMap is None:
-            run_autoclass()
+            run_class()
 
         all_metadata = {}
         for i, arg in enumerate(args):
@@ -357,55 +357,6 @@ class DFIndexer(Indexer):
             return index.getIndex().getIndexRef()
         return IndexRef.of(self.index_dir + "/data.properties")
 
-@JImplements('java.util.Iterator')
-class PythonListIterator:
-
-    def __init__(self, text, meta, convertFn, len=None, index=0):
-        self.text = text
-        self.meta = meta
-        self.index = index
-        self.convertFn = convertFn
-        if len is None:
-            self.len = len(self.text)
-        else:
-            self.len = len
-
-    @JOverride
-    def hasNext(self):
-        return self.index < self.len
-
-    @JOverride
-    def next(self):
-        text = self.text[self.index]
-        meta = self.meta.__next__()
-        self.index += 1
-        if self.convertFn is not None:
-            return self.convertFn(text, meta)
-        return [text, meta]
-
-@JImplements('java.util.Iterator')
-class FlatJSONDocumentIterator:
-
-    def __init__(self, it):
-        if not hasattr(self, 'initialised'):
-            self.initialised = True
-        else:
-            if FlatJSONDocument is None:
-                run_autoclass()
-            self._it = it
-            self._next = next(self._it, StopIteration)
-
-    @JOverride
-    def hasNext(self):
-        return self._next is not StopIteration
-
-    @JOverride
-    def next(self):
-        result = self._next
-        self._next = next(self._it, StopIteration)
-        if result is not StopIteration:
-            return FlatJSONDocument(json.dumps(result))
-        return None
 
 class IterDictIndexer(Indexer):
     """
@@ -554,41 +505,206 @@ class FilesIndexer(Indexer):
             return index.getIndex().getIndexRef()
         return IndexRef.of(self.index_dir + "/data.properties")
 
-@JImplements('org.terrier.indexing.Collection')
-class TQDMCollection:
+if pt.use_jpype:
+    # implement java interfaces using jpype
+    from jpype import JImplements, JOverride
 
-    def __init__(self, collection):
-        assert isinstance(collection, JClass("org.terrier.indexing.MultiDocumentFileCollection"))
-        self.collection = collection
-        size = self.collection.getSize()
-        from tqdm import tqdm
-        self.pbar = tqdm(total=size, unit="files")
-        self.last = -1
+    @JImplements('java.util.Iterator')
+    class PythonListIterator:
 
-    @JOverride
-    def nextDocument(self):
-        rtr = self.collection.nextDocument()
-        filenum = self.collection.getFileNumber()
-        if filenum > self.last:
-            self.pbar.update(filenum - self.last)
-            self.last = filenum
-        return rtr
+        def __init__(self, text, meta, convertFn, len=None, index=0):
+            self.text = text
+            self.meta = meta
+            self.index = index
+            self.convertFn = convertFn
+            if len is None:
+                self.len = len(self.text)
+            else:
+                self.len = len
 
-    @JOverride
-    def reset(self):
-        self.pbar.reset()
-        self.collection.reset()
+        @JOverride
+        def hasNext(self):
+            return self.index < self.len
 
-    @JOverride
-    def close(self):
-        self.pbar.close()
-        self.collection.close()
+        @JOverride
+        def next(self):
+            text = self.text[self.index]
+            meta = self.meta.__next__()
+            self.index += 1
+            if self.convertFn is not None:
+                return self.convertFn(text, meta)
+            return [text, meta]
 
-    @JOverride
-    def endOfCollection(self):
-        return self.collection.endOfCollection()
+    @JImplements('java.util.Iterator')
+    class FlatJSONDocumentIterator:
 
-    @JOverride
-    def getDocument(self):
-        return self.collection.getDocument()
+        def __init__(self, it):
+            if not hasattr(self, 'initialised'):
+                self.initialised = True
+            else:
+                if FlatJSONDocument is None:
+                    run_class()
+                self._it = it
+                self._next = next(self._it, StopIteration)
 
+        @JOverride
+        def hasNext(self):
+            return self._next is not StopIteration
+
+        @JOverride
+        def next(self):
+            result = self._next
+            self._next = next(self._it, StopIteration)
+            if result is not StopIteration:
+                return FlatJSONDocument(json.dumps(result))
+            return None
+
+    @JImplements('org.terrier.indexing.Collection')
+    class TQDMCollection:
+
+        def __init__(self, collection):
+            assert isinstance(collection, pt.Class("org.terrier.indexing.MultiDocumentFileCollection"))
+            self.collection = collection
+            size = self.collection.getSize()
+            from tqdm import tqdm
+            self.pbar = tqdm(total=size, unit="files")
+            self.last = -1
+
+        @JOverride
+        def nextDocument(self):
+            rtr = self.collection.nextDocument()
+            filenum = self.collection.getFileNumber()
+            if filenum > self.last:
+                self.pbar.update(filenum - self.last)
+                self.last = filenum
+            return rtr
+
+        @JOverride
+        def reset(self):
+            self.pbar.reset()
+            self.collection.reset()
+
+        @JOverride
+        def close(self):
+            self.pbar.close()
+            self.collection.close()
+
+        @JOverride
+        def endOfCollection(self):
+            return self.collection.endOfCollection()
+
+        @JOverride
+        def getDocument(self):
+            return self.collection.getDocument()
+else:
+    # implement java interfaces using jpype
+    from jnius import PythonJavaClass, java_method
+
+    class PythonListIterator(PythonJavaClass):
+        __javainterfaces__ = ['java/util/Iterator']
+
+        def __init__(self, text, meta, convertFn, len=None, index=0):
+            super(PythonListIterator, self).__init__()
+            self.text = text
+            self.meta = meta
+            self.index = index
+            self.convertFn = convertFn
+            if len is None:
+                self.len = len(self.text)
+            else:
+                self.len = len
+
+        @java_method('()V')
+        def remove():
+            # 1
+            pass
+
+        @java_method('(Ljava/util/function/Consumer;)V')
+        def forEachRemaining(action):
+            # 1
+            pass
+
+        @java_method('()Z')
+        def hasNext(self):
+            return self.index < self.len
+
+        @java_method('()Ljava/lang/Object;')
+        def next(self):
+            text = self.text[self.index]
+            meta = self.meta.__next__()
+            self.index += 1
+            if self.convertFn is not None:
+                return self.convertFn(text, meta)
+            return [text, meta]
+
+    class FlatJSONDocumentIterator(PythonJavaClass):
+        __javainterfaces__ = ['java/util/Iterator']
+
+        def __init__(self, it):
+            super(FlatJSONDocumentIterator, self).__init__()
+            if FlatJSONDocument is None:
+                run_class()
+            self._it = it
+            # easiest way to support hasNext is just to start consuming right away, I think
+            self._next = next(self._it, StopIteration)
+
+        @java_method('()V')
+        def remove():
+            # 1
+            pass
+
+        @java_method('(Ljava/util/function/Consumer;)V')
+        def forEachRemaining(action):
+            # 1
+            pass
+
+        @java_method('()Z')
+        def hasNext(self):
+            return self._next is not StopIteration
+
+        @java_method('()Ljava/lang/Object;')
+        def next(self):
+            result = self._next
+            self._next = next(self._it, StopIteration)
+            if result is not StopIteration:
+                return FlatJSONDocument(json.dumps(result))
+            return None
+
+    class TQDMCollection(PythonJavaClass):
+        __javainterfaces__ = ['org/terrier/indexing/Collection']
+
+        def __init__(self, collection):
+            super(TQDMCollection, self).__init__()
+            assert isinstance(collection, pt.Class("org.terrier.indexing.MultiDocumentFileCollection"))
+            self.collection = collection
+            size = self.collection.FilesToProcess.size()
+            from . import tqdm
+            self.pbar = tqdm(total=size, unit="files")
+            self.last = -1
+
+        @java_method('()Z')
+        def nextDocument(self):
+            rtr = self.collection.nextDocument()
+            filenum = self.collection.FileNumber
+            if filenum > self.last:
+                self.pbar.update(filenum - self.last)
+                self.last = filenum
+            return rtr
+
+        @java_method('()V')
+        def reset(self):
+            self.pbar.reset()
+            self.collection.reset()
+
+        @java_method('()V')
+        def close(self):
+            self.pbar.close()
+            self.collection.close()
+
+        @java_method('()Z')
+        def endOfCollection(self):
+            return self.collection.endOfCollection()
+
+        @java_method('()Lorg/terrier/indexing/Document;')
+        def getDocument(self):
+            return self.collection.getDocument()
