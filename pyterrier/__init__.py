@@ -61,8 +61,7 @@ def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, log
     elif java_bridge.lower() == 'pyjnius':
         use_jpype = False
     else:
-        raise RuntimeError("%s is not a valid java bridge for PyTerrier, it only supports 'jpype' or 'pyjnius'",
-                           java_bridge)
+        raise RuntimeError("{} is not a valid java bridge for PyTerrier, it only supports 'jpype' or 'pyjnius'".format(java_bridge))
 
     # we keep a local directory
     if home_dir is not None:

@@ -15,7 +15,7 @@ class TestBackground(BaseTestCase):
         direct = index.getDirectIndex()
         lexicon = index.getLexicon()
         for p in direct.getPostings(index.getDocumentIndex().getDocumentEntry(docid)):
-            if isinstance(lexicon, pt.Class("org.terrier.structures.MapLexicon")):
+            if isinstance(lexicon, pt.Class("org.terrier.structures.MapLexicon")) and pt.use_jpype:
                 rtr[lexicon.getLexiconEntryById(p.getId()).getKey()] = p.getFrequency()
             else:
                 rtr[lexicon.getLexiconEntry(p.getId()).getKey()] = p.getFrequency()

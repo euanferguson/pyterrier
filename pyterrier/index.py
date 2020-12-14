@@ -453,6 +453,12 @@ class TRECCollectionIndexer(Indexer):
         asList = self.createAsList(files_path)
         cls_string = pt.Class("java.lang.String")
         cls_list = pt.Class("java.util.List")
+
+        if not pt.use_jpype:
+            # If using pyjnius must get java class, and not MetaJavaClass
+            cls_string = cls_string._class
+            cls_list = cls_list._class
+
         colObj = pt.Class("org.terrier.indexing.CollectionFactory").loadCollections(
             self.collection,
             [cls_list, cls_string, cls_string, cls_string],
