@@ -3,7 +3,7 @@ import types
 from matchpy import ReplacementRule, Wildcard, Symbol, Operation, Arity, replace_all, Pattern, CustomConstraint
 from warnings import warn
 import pandas as pd
-from .model import add_ranks
+from .model import add_ranks, PipelineError, TRANSFORMER_FAMILY, TYPE_SAFETY_LEVEL, RANKED_DOCS
 
 LAMBDA = lambda:0
 def is_lambda(v):
@@ -111,12 +111,54 @@ class TransformerBase:
         as well as the compile() for rewriting complex pipelines into more simples ones.
     '''
 
-    def transform(self, topics_or_res):
+    def __init__(self, **kwargs):
+        self.family = kwargs.get('family')
+
+        if self.family:
+            self.minimal_input = TRANSFORMER_FAMILY[self.family]['minimal_input']
+            self.minimal_output = TRANSFORMER_FAMILY[self.family]['minimal_output']
+        else:
+            self.minimal_input = kwargs.get('minimal_input')
+            self.minimal_output = kwargs.get('minimal_output')
+
+        # Use type safety level to judge how strictly we need input/output to be defined
+        if not self.minimal_input:
+            if TYPE_SAFETY_LEVEL == 1:
+                print("WARNING: Minimal input not defined for transformer " + str(self))
+            elif TYPE_SAFETY_LEVEL == 2:
+                raise TypeError("Minimal input not defined for transformer " + str(self))
+        if not self.minimal_output:
+            if TYPE_SAFETY_LEVEL == 1:
+                print("WARNING: Minimal output not defined for transformer " + str(self))
+            elif TYPE_SAFETY_LEVEL == 2:
+                raise TypeError("Minimal output not defined for transformer " + str(self))
+
+    def transform(self, topics_or_res, source):
         '''
             Abstract method for all transformations. Typically takes as input a Pandas
             DataFrame, and also returns one.
         '''
         pass
+
+    def validate(self, inputs):
+        '''
+            Default method implementation to validate transformer types. Checks that the input dataframe to the
+            transformer has the required attributes, and returns the attributes that will be provided if applicable
+        '''
+        if isinstance(inputs, pd.DataFrame):
+            inputs = inputs.columns
+        # We are validating that the set of input columns is a superset (>=) of the set of minimal input columns
+        # i.e. all required columns are present
+        if set(inputs) >= set(self.minimal_input):
+            return self._calculate_output(inputs)
+        else:
+            raise TypeError("Could not validate transformer with given input")
+
+    def _calculate_output(self, inputs):
+        if isinstance(inputs, pd.DataFrame):
+            inputs = inputs.columns
+        # We return the union of the set of input columns and the minimal output columns
+        return list(set(inputs) | set(self.minimal_output))
 
     def compile(self):
         '''
@@ -254,6 +296,27 @@ class BinaryTransformerBase(TransformerBase,Operation):
         self.left = operands[0]
         self.right = operands[1]
 
+    def validate(self, inputs):
+        # first validate sub components
+        try:
+            left_output = self.left.validate(inputs)
+        except TypeError:
+            raise PipelineError(self.left, inputs)
+
+        try:
+            right_output = self.right.validate(inputs)
+        except TypeError:
+            raise PipelineError(self.right, inputs)
+
+        # then validate what the sub components provide
+        if set(left_output) < set(self.minimal_input):
+            raise PipelineError(self, left_output, self.left)
+        elif set(right_output) < set(self.minimal_input):
+            raise PipelineError(self, right_output, self.right)
+        else:
+            return self._calculate_output(left_output) #TODO might need to incorporate both left and right input?
+
+
 class NAryTransformerBase(TransformerBase,Operation):
     arity = Arity.polyadic
 
@@ -273,6 +336,17 @@ class NAryTransformerBase(TransformerBase,Operation):
             Returns the number of transformers in the operator.
         '''
         return len(self.models)
+
+    def validate(self, inputs):
+        next_input = self.models[0].validate(inputs)
+
+        for i in range(len(self)-1):
+            try:
+                next_input = self.models[i+1].validate(next_input)
+            except TypeError:
+                raise PipelineError(self.models[i+1], next_input, self.models[i])
+
+        return next_input
 
 class SetUnionTransformer(BinaryTransformerBase):
     '''      
@@ -394,7 +468,10 @@ class RankCutoffTransformer(BinaryTransformerBase):
 
     def __init__(self, operands, **kwargs):
         operands = [operands[0], Scalar(str(operands[1]), operands[1])] if isinstance(operands[1], int) else operands
-        super().__init__(operands, **kwargs)
+        family='reranking'
+        # minimal_input=RANKED_DOC
+        # minimal_output=RANKED_DOC
+        super().__init__(operands, **kwargs, family=family)
         self.transformer = operands[0]
         self.cutoff = operands[1]
         if self.cutoff.value % 10 == 9:
@@ -408,6 +485,20 @@ class RankCutoffTransformer(BinaryTransformerBase):
         # this assumes that the minimum rank cutoff is model.FIRST_RANK, i.e. 0
         res = res[res["rank"] < self.cutoff.value]
         return res
+
+    def validate(self, inputs):
+        # Validate only first component, since second component scalar
+        try:
+            transformer_output = self.transformer.validate(inputs)
+        except TypeError:
+            raise PipelineError(self.transformer, inputs)
+
+        # then validate what the sub component provide
+        if set(transformer_output) < set(self.minimal_input):
+            raise PipelineError(self, transformer_output, self.transformer)
+        else:
+            return self._calculate_output(transformer_output) #TODO might need to incorporate both left and right input?
+
 
 class LambdaPipeline(TransformerBase):
     """
