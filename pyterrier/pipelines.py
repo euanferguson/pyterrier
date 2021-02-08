@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from .utils import Utils
 from .transformer import TransformerBase, EstimatorBase
-from .model import add_ranks
+from .model import add_ranks, PipelineError
 
 def _bold_cols(data, col_type):
     if not data.name in col_type:
@@ -40,7 +40,8 @@ def _color_cols(data, col_type,
     is_max[len(data) - list(reversed(data)).index(max_value) -  1] = colormaxlast_attr
     return is_max
 
-def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=False, dataframe=True, baseline=None, highlight=None):
+def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=False, dataframe=True, baseline=None, highlight=None,
+               validate="WARN"):
     """
     Cornac style experiment. Combines retrieval and evaluation.
     Allows easy comparison of multiple retrieval systems with different properties and controls.
@@ -58,6 +59,8 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
             Default=None: If None, no additional columns added for each measure
         highlight(str) : If "bold", highlights in bold the best measure value in each column; 
             if "color" or "colour" uses green to indicate highest values
+        validate(bool/str) : Define the strictness level of transformer validation
+            if False do not validate, if "WARN" validate and print warning, if True validate and throw PipelineError
 
     Returns:
         A Dataframe with each retrieval system with each metric evaluated.
@@ -96,6 +99,21 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
         names = []
     elif len(names) != len(retr_systems):
         raise ValueError("names should be the same length as retr_systems")
+
+    if validate:
+        for i, system in enumerate(retr_systems):
+            try:
+                system.validate(topics)
+            except PipelineError as e:
+                if validate == "WARN":
+                    name = str(system) if neednames else names[i]
+                    warn("%s is not a valid pipeline.\n"
+                         "Error: %s\n"
+                         "Set validate = False to suppress this warning." % (name, str(e)))
+                else:
+                    e.message += "\nSet validate = False to suppress this error."
+                    raise e
+
     for system in retr_systems:
         results.append(system.transform(topics))
         if neednames:
@@ -271,6 +289,9 @@ class PerQueryMaxMinScoreTransformer(TransformerBase):
     '''
     applies per-query maxmin scaling on the input scores
     '''
+    def __init__(self):
+        family='reranking'
+        super().__init__(family=family)
     
     def transform(self, topics_and_res):
         from sklearn.preprocessing import minmax_scale
