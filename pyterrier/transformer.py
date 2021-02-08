@@ -3,7 +3,8 @@ import types
 from matchpy import ReplacementRule, Wildcard, Symbol, Operation, Arity, replace_all, Pattern, CustomConstraint
 from warnings import warn
 import pandas as pd
-from .model import add_ranks, PipelineError, TRANSFORMER_FAMILY, TYPE_SAFETY_LEVEL, RANKED_DOCS
+from .model import add_ranks, PipelineError, TRANSFORMER_FAMILY, TYPE_SAFETY_LEVEL, QUERIES, DOCS, RANKED_DOCS, \
+    DOCS_FEATURES, RANKED_DOCS_FEATURES
 
 LAMBDA = lambda:0
 def is_lambda(v):
@@ -158,7 +159,8 @@ class TransformerBase:
         if isinstance(inputs, pd.DataFrame):
             inputs = inputs.columns
         # We return the union of the set of input columns and the minimal output columns
-        return list(set(inputs) | set(self.minimal_output))
+        # return list(set(inputs) | set(self.minimal_output))
+        return self.minimal_output
 
     def compile(self):
         '''
@@ -209,6 +211,9 @@ class TransformerBase:
         from .cache import ChestCacheTransformer
         return ChestCacheTransformer(self)
 
+    def __str__(self):
+        return str(self.__class__)
+
     def transform_gen(self, input, batch_size=1):
         docno_provided = "docno" in input.columns
         docid_provided = "docid" in input.columns
@@ -258,7 +263,9 @@ class SourceTransformer(TransformerBase, Operation):
     arity = Arity.nullary
 
     def __init__(self, rtr, **kwargs):
-        super().__init__(operands=[], **kwargs)
+        minimal_input = QUERIES
+        minimal_output = QUERIES
+        super().__init__(operands=[], **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
         self.operands=[]
         self.df = rtr[0]
         self.df_contains_query = "query" in self.df.columns
@@ -340,6 +347,14 @@ class NAryTransformerBase(TransformerBase,Operation):
     def validate(self, inputs):
         next_input = self.models[0].validate(inputs)
 
+        # In the case where the first input to an nary transformer must be a certain type, we must validate
+        if self.minimal_input:
+            try:
+                super().validate(next_input)
+            except TypeError:
+                raise PipelineError(self, next_input, self.models[0])
+
+
         for i in range(len(self)-1):
             try:
                 next_input = self.models[i+1].validate(next_input)
@@ -358,6 +373,11 @@ class SetUnionTransformer(BinaryTransformerBase):
         In case of duplicated both containing (qid, docno), only the first occurrence will be used.
     '''
     name = "Union"
+
+    def __init__(self, operands, **kwargs):
+        minimal_input = DOCS
+        minimal_output = DOCS
+        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
 
     def transform(self, topics):
         res1 = self.left.transform(topics)
@@ -383,6 +403,11 @@ class SetIntersectionTransformer(BinaryTransformerBase):
         For columns other than (qid, docno), only the left value will be used.
     '''
     name = "Intersect"
+
+    def __init__(self, operands, **kwargs):
+        minimal_input = DOCS
+        minimal_output = DOCS
+        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
     
     def transform(self, topics):
         res1 = self.left.transform(topics)
@@ -396,6 +421,11 @@ class SetIntersectionTransformer(BinaryTransformerBase):
 class CombSumTransformer(BinaryTransformerBase):
     name = "Sum"
 
+    def __init__(self, operands, **kwargs):
+        minimal_input = RANKED_DOCS
+        minimal_output = RANKED_DOCS
+        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
+
     def transform(self, topics_and_res):
         res1 = self.left.transform(topics_and_res)
         res2 = self.right.transform(topics_and_res)
@@ -408,6 +438,11 @@ class CombSumTransformer(BinaryTransformerBase):
 class ConcatenateTransformer(BinaryTransformerBase):
     name = "Concat"
     epsilon = 0.0001
+
+    def __init__(self, operands, **kwargs):
+        minimal_input = RANKED_DOCS
+        minimal_output = RANKED_DOCS
+        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
 
     def transform(self, topics_and_res):
         import pandas as pd
@@ -450,7 +485,9 @@ class ScalarProductTransformer(BinaryTransformerBase):
     name = "ScalarProd"
 
     def __init__(self, operands, **kwargs):
-        super().__init__(operands, **kwargs)
+        minimal_input = RANKED_DOCS
+        minimal_output = RANKED_DOCS
+        super().__init__(operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
         self.transformer = operands[0]
         self.scalar = operands[1]
 
@@ -468,10 +505,9 @@ class RankCutoffTransformer(BinaryTransformerBase):
 
     def __init__(self, operands, **kwargs):
         operands = [operands[0], Scalar(str(operands[1]), operands[1])] if isinstance(operands[1], int) else operands
-        family='reranking'
-        # minimal_input=RANKED_DOC
-        # minimal_output=RANKED_DOC
-        super().__init__(operands, **kwargs, family=family)
+        minimal_input = RANKED_DOCS
+        minimal_outout = RANKED_DOCS
+        super().__init__(operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_outout)
         self.transformer = operands[0]
         self.cutoff = operands[1]
         if self.cutoff.value % 10 == 9:
@@ -520,6 +556,11 @@ class LambdaPipeline(TransformerBase):
 
 class FeatureUnionPipeline(NAryTransformerBase):
     name = "FUnion"
+
+    def __init__(self, operands, **kwargs):
+        minimal_input = DOCS
+        minimal_output = DOCS_FEATURES
+        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
 
     def transform(self, inputRes):
         if not "docno" in inputRes.columns and "docid" in inputRes.columns:

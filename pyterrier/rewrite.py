@@ -20,7 +20,8 @@ class SDM(TransformerBase):
     '''
 
     def __init__(self, verbose = 0, remove_stopwords = True, prox_model = None, **kwargs):
-        super().__init__(**kwargs)
+        family = 'queryrewrite'
+        super().__init__(family=family, **kwargs)
         self.verbose = 0
         self.prox_model = prox_model
         self.remove_stopwords = remove_stopwords
@@ -78,7 +79,8 @@ class QueryExpansion(TransformerBase):
     '''
 
     def __init__(self, index_like, fb_terms=10, fb_docs=3, qeclass="org.terrier.querying.QueryExpansion", verbose=0, properties={}, **kwargs):
-        super().__init__(**kwargs)
+        family = 'queryexpansion'
+        super().__init__(family=family, **kwargs)
         self.verbose = verbose
         if isinstance(qeclass, str):
             self.qe = pt.JClass(qeclass)()

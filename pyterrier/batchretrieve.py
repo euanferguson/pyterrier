@@ -5,7 +5,7 @@ from . import tqdm
 
 from .index import Indexer
 from .transformer import TransformerBase, Symbol
-from .model import coerce_queries_dataframe, FIRST_RANK
+from .model import coerce_queries_dataframe, FIRST_RANK, QUERIES, DOCS, RANKED_DOCS, DOCS_FEATURES
 import deprecation
 
 # import time
@@ -51,7 +51,7 @@ class BatchRetrieveBase(TransformerBase, Symbol):
         verbose(bool): If True transform method will display progress
     """
     def __init__(self, verbose=0, **kwargs):
-        super().__init__(kwargs)
+        super().__init__(**kwargs)
         self.verbose = verbose
 
 class BatchRetrieve(BatchRetrieveBase):
@@ -97,9 +97,12 @@ class BatchRetrieve(BatchRetrieveBase):
             verbose(bool): If True transform method will display progress
             num_results(int): Number of results to retrieve. 
             metadata(list): What metadata to retrieve
+            family(string): Transformer family this instance of BatchRetrieve belongs to
     """
-    def __init__(self, index_location, controls=None, properties=None, metadata=["docno"],  num_results=None, wmodel=None, **kwargs):
-        super().__init__(kwargs)
+    def __init__(self, index_location, controls=None, properties=None, metadata=["docno"],  num_results=None, wmodel=None, family=None, **kwargs):
+        if not family:
+            family = 'retrieval'
+        super().__init__(**kwargs, family=family)
         
         self.indexref = parse_index_like(index_location)
         self.appSetup = JClass('org.terrier.utility.ApplicationSetup')
@@ -127,7 +130,6 @@ class BatchRetrieve(BatchRetrieveBase):
 
         MF = JClass('org.terrier.querying.ManagerFactory')
         self.manager = MF._from_(self.indexref)
-        
 
     def transform(self, queries):
         """
@@ -379,8 +381,9 @@ class FeaturesBatchRetrieve(BatchRetrieve):
             self.wmodel = kwargs["wmodel"]
         if "wmodel" in controls:
             self.wmodel = controls["wmodel"]
-        
-        super().__init__(index_location, controls, properties, **kwargs)
+
+        family='featurescoring'
+        super().__init__(index_location, controls, properties, family=family, **kwargs)
 
     def transform(self, topics):
         """
