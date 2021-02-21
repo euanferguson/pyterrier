@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from .utils import Utils
 from .transformer import TransformerBase, EstimatorBase
-from .model import add_ranks, PipelineError
+from .model import add_ranks, PipelineError, DOCS_FEATURES, RANKED_DOCS_FEATURES
 
 def _bold_cols(data, col_type):
     if not data.name in col_type:
@@ -208,8 +208,11 @@ class LTR_pipeline(EstimatorBase):
             LTR: The model which to use for learning-to-rank. Must have a fit() and predict() methods.
             fit_kwargs: A dictionary containing additional arguments that can be passed to LTR's fit() method.  
         """
+        minimal_input = DOCS_FEATURES
+        minimal_output = RANKED_DOCS_FEATURES
+        true_output = "minimal_output"
         self.fit_kwargs = fit_kwargs
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output, true_output=true_output)
         self.LTR = LTR
 
     def fit(self, topics_and_results_Train, qrelsTrain, topics_and_results_Valid=None, qrelsValid=None):
@@ -290,8 +293,9 @@ class PerQueryMaxMinScoreTransformer(TransformerBase):
     applies per-query maxmin scaling on the input scores
     '''
     def __init__(self):
-        family='reranking'
-        super().__init__(family=family)
+        family = 'reranking'
+        true_output = 'input'
+        super().__init__(family=family, true_output=true_output)
     
     def transform(self, topics_and_res):
         from sklearn.preprocessing import minmax_scale

@@ -37,7 +37,7 @@ TRANSFORMER_FAMILY = {
     },
     'featurescoring': {
         'minimal_input': QUERIES,
-        'minimal_output': DOCS_FEATURES,
+        'minimal_output': RANKED_DOCS_FEATURES,
     }
 }
 
@@ -64,10 +64,10 @@ class PipelineError(Exception):
         return self.message
 
     def _generate_error_message(self, t1, bad_input, t2=None):
-        msg = "Transformer " + str(t1) + " requires columns " + str(t1.minimal_input) + " however only " \
+        msg = "Transformer " + repr(t1) + " requires columns " + str(t1.minimal_input) + " however only " \
                       "receives columns " + str(bad_input)
         if t2:
-            msg += " from " + str(t2)
+            msg += " from " + repr(t2)
         return msg
 
 

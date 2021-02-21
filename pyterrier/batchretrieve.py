@@ -50,8 +50,8 @@ class BatchRetrieveBase(TransformerBase, Symbol):
     Attributes:
         verbose(bool): If True transform method will display progress
     """
-    def __init__(self, verbose=0, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, verbose=0, family="retrieval", **kwargs):
+        super().__init__(**kwargs, family=family)
         self.verbose = verbose
 
 class BatchRetrieve(BatchRetrieveBase):
@@ -99,10 +99,9 @@ class BatchRetrieve(BatchRetrieveBase):
             metadata(list): What metadata to retrieve
             family(string): Transformer family this instance of BatchRetrieve belongs to
     """
-    def __init__(self, index_location, controls=None, properties=None, metadata=["docno"],  num_results=None, wmodel=None, family=None, **kwargs):
-        if not family:
-            family = 'retrieval'
-        super().__init__(**kwargs, family=family)
+    def __init__(self, index_location, controls=None, properties=None, metadata=["docno"],  num_results=None, wmodel=None, **kwargs):
+        true_output = ["qid", "docid", "rank", "score", "query"] + metadata
+        super().__init__(**kwargs, true_output=true_output)
         
         self.indexref = parse_index_like(index_location)
         self.appSetup = JClass('org.terrier.utility.ApplicationSetup')
@@ -268,7 +267,10 @@ class TextIndexProcessor(TransformerBase):
     '''
 
     def __init__(self, innerclass, takes="queries", returns="docs", body_attr="body", background_index=None, verbose=False, **kwargs):
-        #super().__init__(**kwargs)
+        minimal_input = DOCS + [body_attr]
+        minimal_output = RANKED_DOCS if returns == "docs" else QUERIES
+        true_output = "minimal_output" if returns == "docs" else RANKED_DOCS + ["docid"]
+        super().__init__(**kwargs, minimal_input=minimal_input, minimal_output=minimal_output, true_output=true_output)
         self.innerclass = innerclass
         self.takes = takes
         self.returns = returns
@@ -382,8 +384,9 @@ class FeaturesBatchRetrieve(BatchRetrieve):
         if "wmodel" in controls:
             self.wmodel = controls["wmodel"]
 
-        family='featurescoring'
-        super().__init__(index_location, controls, properties, family=family, **kwargs)
+        family = 'featurescoring'
+        true_output = ["qid", "docid", "docno", "rank", "score", "features"]
+        super().__init__(index_location, controls, properties, family=family, **kwargs, true_output=true_output)
 
     def transform(self, topics):
         """

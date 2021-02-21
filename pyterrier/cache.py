@@ -110,6 +110,9 @@ class ChestCacheTransformer(TransformerBase):
     def NOCACHE(self):
         return self.inner
 
+    def validate(self, inputs):
+        return self.inner.validate()
+
     def transform(self, input_res):
         if self.disable:
             return self.inner.transform(input_res)
