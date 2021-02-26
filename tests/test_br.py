@@ -98,7 +98,7 @@ class TestBatchRetrieve(BaseTestCase):
         jindex.close()
 
     def test_two_term_query_correct_qid_docid_score(self):
-        JIR = pt.JClass('org.terrier.querying.IndexRef')
+        JIR = pt.Class('org.terrier.querying.IndexRef')
         indexref = JIR.of(self.here + "/fixtures/index/data.properties")
         retr = pt.BatchRetrieve(indexref)
         input = pd.DataFrame([["1", "Stability"], ["2", "Generator"]], columns=['qid', 'query'])
@@ -120,7 +120,7 @@ class TestBatchRetrieve(BaseTestCase):
             self.assertAlmostEqual(row['score'], exp_result[index][2])
 
     def test_num_results(self):
-        JIR = pt.JClass('org.terrier.querying.IndexRef')
+        JIR = pt.Class('org.terrier.querying.IndexRef')
         indexref = JIR.of(self.here+"/fixtures/index/data.properties")
         retr = pt.BatchRetrieve(indexref, num_results=10)
         input=pd.DataFrame([["1", "Stability"]],columns=['qid','query'])
