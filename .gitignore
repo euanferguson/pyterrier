@@ -119,3 +119,5 @@ logs/
 
 #PyCharm configuration files
 .idea/
+
+docs/_includes/*

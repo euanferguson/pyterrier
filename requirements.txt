@@ -1,7 +1,7 @@
 numpy
 pandas
 wget
-pytrec_eval
+pytrec_eval>=0.5
 tqdm
 JPype1==1.1.1
 matchpy
@@ -10,3 +10,10 @@ deprecation
 chest
 scipy
 requests
+nptyping
+tabulate
+jinja2
+sphinx_rtd_theme
+more_itertools
+myst_parser
+ir_datasets>=0.2.0

@@ -1,6 +1,6 @@
 import pyterrier as pt
 import pandas as pd
-from .batchretrieve import parse_index_like
+from .batchretrieve import _parse_index_like
 from .transformer import TransformerBase, Symbol
 from . import tqdm
 from warnings import warn
@@ -88,7 +88,7 @@ class QueryExpansion(TransformerBase):
             self.qe = pt.JClass(qeclass)()
         else:
             self.qe = qeclass
-        self.indexref = parse_index_like(index_like)
+        self.indexref = _parse_index_like(index_like)
         for k,v in properties.items():
             pt.ApplicationSetup.setProperty(k, str(v))
         self.applytp = pt.JClass("org.terrier.querying.ApplyTermPipeline")()
@@ -182,11 +182,23 @@ class DFRQueryExpansion(QueryExpansion):
 
 class Bo1QueryExpansion(DFRQueryExpansion):
     def __init__(self, *args, **kwargs):
+        """
+        Args:
+            index_like: the Terrier index to use.
+            fb_terms(int): number of terms to add to the query. Terrier's default setting is 10 expansion terms.
+            fb_docs(int): number of feedback documents to consider. Terrier's default setting is 3 feedback documents.
+        """
         kwargs["qemodel"] = "Bo1"
         super().__init__(*args, **kwargs)
 
 class KLQueryExpansion(DFRQueryExpansion):
     def __init__(self, *args, **kwargs):
+        """
+        Args:
+            index_like: the Terrier index to use
+            fb_terms(int): number of terms to add to the query. Terrier's default setting is 10 expansion terms.
+            fb_docs(int): number of feedback documents to consider. Terrier's default setting is 3 feedback documents.
+        """
         kwargs["qemodel"] = "KL"
         super().__init__(*args, **kwargs)
 
@@ -195,7 +207,13 @@ class RM3(QueryExpansion):
     '''
         Performs query expansion using RM3 relevance models
     '''
-    def __init__(self, *args, fb_terms=10, fb_docs=3, **kwargs):
+    def __init__(self, *args, fb_terms=10, fb_docs=3, fb_lambda=0.6, **kwargs):
+        """
+        Args:
+            index_like: the Terrier index to use
+            fb_terms(int): number of terms to add to the query. Terrier's default setting is 10 expansion terms.
+            fb_docs(int): number of feedback documents to consider. Terrier's default setting is 3 feedback documents.
+        """
         global terrier_prf_package_loaded
 
         #if not terrier_prf_package_loaded:
@@ -211,10 +229,13 @@ class RM3(QueryExpansion):
         assert prf_found, 'terrier-prf jar not found: you should start Pyterrier with '\
             + 'pt.init(boot_packages=["org.terrier:terrier-prf:0.0.1-SNAPSHOT"])'
         rm = pt.JClass("org.terrier.querying.RM3")()
-        self.fb_terms = fb_terms
-        self.fb_docs = fb_docs
+        self.fb_lambda = fb_lambda
         kwargs["qeclass"] = rm
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, fb_terms=fb_terms, fb_docs=fb_docs, **kwargs)
+
+    def _configure_request(self, rq):
+        super()._configure_request(rq)
+        rq.setControl("rm3.lambda", str(self.fb_lambda))
         
     def transform(self, queries_and_docs):
         self.qe.fbTerms = self.fb_terms
@@ -226,6 +247,12 @@ class AxiomaticQE(QueryExpansion):
         Performs query expansion using axiomatic query expansion
     '''
     def __init__(self, *args, fb_terms=10, fb_docs=3, **kwargs):
+        """
+        Args:
+            index_like: the Terrier index to use
+            fb_terms(int): number of terms to add to the query. Terrier's default setting is 10 expansion terms.
+            fb_docs(int): number of feedback documents to consider. Terrier's default setting is 3 feedback documents.
+        """
         global terrier_prf_package_loaded
 
         #if not terrier_prf_package_loaded:
