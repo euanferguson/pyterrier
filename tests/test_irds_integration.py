@@ -23,7 +23,7 @@ class TestIrDatasetsIntegration(BaseTestCase):
                 indexer = pt.index.IterDictIndexer(d)
                 indexref = indexer.index(dataset.get_corpus_iter(), fields=('text',))
                 index = pt.IndexFactory.of(indexref)
-                self.assertEqual(index.lexicon['bit'].frequency, 33)
+                self.assertEqual(index.getLexicon()['bit'].getFrequency(), 33)
 
     def test_cord19(self):
         if "PYTERRIER_TEST_IRDS_CORD" in os.environ:

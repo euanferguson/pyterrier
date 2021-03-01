@@ -108,12 +108,12 @@ class Scalar(Symbol):
         super().__init__(name)
         self.value = value
 
+
 class TransformerBase:
     """
         Base class for all transformers. Implements the various operators >> + * | & 
         as well as the compile() for rewriting complex pipelines into more simples ones.
     """
-
 
     def __init__(self, **kwargs):
         self.family = kwargs.get('family')
@@ -126,19 +126,19 @@ class TransformerBase:
             self.minimal_output = kwargs.get('minimal_output')
 
         # Use type safety level to judge how strictly we need input/output to be defined
-        if not self.minimal_input:
+        if not hasattr(self, 'minimal_input'):
             if TYPE_SAFETY_LEVEL == 1:
                 print("WARNING: Minimal input not defined for transformer " + repr(self))
             elif TYPE_SAFETY_LEVEL == 2:
                 raise TypeError("Minimal input not defined for transformer " + repr(self))
-        if not self.minimal_output:
+        if not hasattr(self, 'minimal_output'):
             if TYPE_SAFETY_LEVEL == 1:
                 print("WARNING: Minimal output not defined for transformer " + repr(self))
             elif TYPE_SAFETY_LEVEL == 2:
                 raise TypeError("Minimal output not defined for transformer " + repr(self))
 
         self.true_output = kwargs.get('true_output')
-        if not self.minimal_output:
+        if not hasattr(self, 'true_output'):
             if TYPE_SAFETY_LEVEL == 1:
                 print("WARNING: True output not defined for transformer " + repr(self))
             elif TYPE_SAFETY_LEVEL == 2:
@@ -216,9 +216,9 @@ class TransformerBase:
         elif isinstance(inputs, pd.DataFrame):
             inputs = inputs.columns
 
-        # We are validating that the set of input columns is a superset (>=) of the set of minimal input columns
+        # We are validating that the set of input columns is a superset of the set of minimal input columns
         # i.e. all required columns are present
-        if set(inputs) >= set(self.minimal_input):
+        if set(inputs).issuperset(set(self.minimal_input)):
             return self._calculate_output(inputs)
         else:
             raise TypeError("Could not validate transformer with given input")
@@ -315,7 +315,7 @@ class IdentityTransformer(TransformerBase, Operation):
     arity = Arity.nullary
 
     def __init__(self, *args, **kwargs):
-        super(IdentityTransformer, self).__init__(*args, **kwargs)
+        Operation.__init__(self, *args, **kwargs)
 
     def validate(self, inputs):
         # Identity transformer always valid
@@ -366,9 +366,10 @@ class UniformTransformer(TransformerBase, Operation):
 
     def __init__(self, rtr, **kwargs):
         minimal_input = []
-        minimal_output = rtr.columns
+        minimal_output = list(rtr[0].columns)
         true_output = "minimal_output"
-        super().__init__(operands=[], **kwargs, minimal_input=minimal_input, minimal_output=minimal_output, true_output=true_output)
+        Operation.__init__(self, operands=[], **kwargs)
+        TransformerBase.__init__(self, minimal_input=minimal_input, minimal_output=minimal_output, true_output=true_output, **kwargs)
         self.operands=[]
         self.rtr = rtr[0]
     
@@ -384,7 +385,8 @@ class BinaryTransformerBase(TransformerBase,Operation):
 
     def __init__(self, operands, **kwargs):
         assert 2 == len(operands)
-        super().__init__(operands=operands,  **kwargs)
+        Operation.__init__(self, operands=operands)
+        TransformerBase.__init__(self, **kwargs)
         self.left = operands[0]
         self.right = operands[1]
 
@@ -394,16 +396,16 @@ class BinaryTransformerBase(TransformerBase,Operation):
             left_output = self.left.validate(inputs)
         except TypeError:
             raise PipelineError(self.left, inputs)
-        if set(left_output) < set(self.minimal_input):
+        if not set(self.minimal_input).issubset(left_output):
             raise PipelineError(self, left_output, self.left)
 
         # validate right component
-        if not isinstance(self.right, int) and not isinstance(self.right, float):
+        if not isinstance(self.right, int) and not isinstance(self.right, float) and not isinstance(self.right, Scalar):
             try:
                 right_output = self.right.validate(inputs)
             except TypeError:
                 raise PipelineError(self.right, inputs)
-            if set(right_output) < set(self.minimal_input):
+            if not set(self.minimal_input).issubset(right_output):
                 raise PipelineError(self, right_output, self.right)
 
         return self._calculate_output(left_output)
@@ -415,8 +417,10 @@ class NAryTransformerBase(TransformerBase,Operation):
     """
     arity = Arity.polyadic
 
-    def __init__(self, operands, **kwargs):
-        super().__init__(operands=operands, **kwargs)
+    def __init__(self, operands, minimal_input=None, **kwargs):
+        if minimal_input:
+            TransformerBase.__init__(self, minimal_input=minimal_input)
+        Operation.__init__(self, operands=operands)
         models = operands
         self.models = list( map(lambda x : get_transformer(x), models) )
 
@@ -441,7 +445,7 @@ class NAryTransformerBase(TransformerBase,Operation):
 
         # In the case where the first transformer of an nary transformer must return a certain type, regardless of
         # further transformers
-        if self.minimal_input:
+        if hasattr(self, "minimal_input"):
             try:
                 super().validate(next_input)
             except TypeError:
@@ -802,7 +806,8 @@ class FeatureUnionPipeline(NAryTransformerBase):
     name = "FUnion"
 
     def __init__(self, operands, **kwargs):
-        super().__init__(operands=operands, **kwargs)
+        minimal_input = DOCS
+        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input)
 
     def transform(self, inputRes):
         if not "docno" in inputRes.columns and "docid" in inputRes.columns:

@@ -66,7 +66,7 @@ class TestIterDictIndexer(BaseTestCase):
                 if 'title' in fields:
                     self.assertEqual(2, post.getFrequency())
                     self.assertEqual(1, post.getFieldFrequencies()[0])
-                    self.assertEqual(1, post.getFieldFrequencies[1])
+                    self.assertEqual(1, post.getFieldFrequencies()[1])
                 else:
                     self.assertEqual(1, post.getFrequency())
                     self.assertEqual(1, post.getFieldFrequencies()[0])

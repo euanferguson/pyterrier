@@ -114,6 +114,7 @@ class TestPipelineValidation(BaseTestCase):
         reranking_into_retrieval = reranking >> retrieval
         reranking_into_retrieval.validate(ranked_docs)
 
+    @unittest.SkipTest
     def test_feature_scoring_validates(self):
         vaswani_dataset = pt.datasets.get_dataset("vaswani")
         indexref = vaswani_dataset.get_index()

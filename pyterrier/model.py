@@ -13,10 +13,10 @@ TYPE_SAFETY_LEVEL = 0
 
 # Standard data types that transformers provide and require
 QUERIES = ["qid", "query"]
-DOCS = ["qid", "query", "docno"]
+DOCS = ["docno"]
 RANKED_DOCS = ["qid", "query", "docno", "score", "rank"]
-DOCS_FEATURES = ["qid", "query", "docno", "features"]
-RANKED_DOCS_FEATURES = ["qid", "query", "docno", "score", "rank", "features"]
+DOCS_FEATURES = ["docno", "features"]
+RANKED_DOCS_FEATURES = ["qid", "docno", "score", "rank", "features"]
 
 TRANSFORMER_FAMILY = {
     'queryrewrite': {

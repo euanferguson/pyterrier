@@ -129,17 +129,18 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
 
     if validate:
         for i, system in enumerate(retr_systems):
-            try:
-                system.validate(topics)
-            except PipelineError as e:
-                if validate == "WARN":
-                    name = str(system) if neednames else names[i]
-                    warn("%s is not a valid pipeline.\n"
-                         "Error: %s\n"
-                         "Set validate = False to suppress this warning." % (name, str(e)))
-                else:
-                    e.message += "\nSet validate = False to suppress this error."
-                    raise e
+            if not isinstance(system, pd.DataFrame):
+                try:
+                    system.validate(topics)
+                except PipelineError as e:
+                    if validate == "WARN":
+                        name = str(system) if neednames else names[i]
+                        warn("%s is not a valid pipeline.\n"
+                             "Error: %s\n"
+                             "Set validate = False to suppress this warning." % (name, str(e)))
+                    else:
+                        e.message += "\nSet validate = False to suppress this error."
+                        raise e
 
     for system in retr_systems:
         # if its a DataFrame, use it as the results

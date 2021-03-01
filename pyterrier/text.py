@@ -34,8 +34,8 @@ def get_text(
 
     """
     import pyterrier as pt
-    JIR = pt.autoclass('org.terrier.querying.IndexRef')
-    JI = pt.autoclass('org.terrier.structures.Index')
+    JIR = pt.JClass('org.terrier.querying.IndexRef')
+    JI = pt.JClass('org.terrier.structures.Index')
 
     if isinstance(metadata, str):
         metadata = [metadata]

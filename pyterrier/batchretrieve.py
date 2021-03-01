@@ -80,7 +80,8 @@ class BatchRetrieve(BatchRetrieveBase):
         "termpipelines": "Stopwords,PorterStemmer"
     }
 
-    def __init__(self, index_location, controls=None, properties=None, metadata=["docno"],  num_results=None, wmodel=None, **kwargs):
+    def __init__(self, index_location, controls=None, properties=None, metadata=["docno"],  num_results=None, wmodel=None,
+                 true_output=None, **kwargs):
         """
             Init method
 
@@ -88,12 +89,14 @@ class BatchRetrieve(BatchRetrieveBase):
                 index_location: An index-like object - An Index, an IndexRef, or a String that can be resolved to an IndexRef
                 controls(dict): A dictionary with the control names and values
                 properties(dict): A dictionary with the property keys and values
-                verbose(bool): If True transform method will display progress
+                verbose(bool): If e transform method will display progress
                 num_results(int): Number of results to retrieve. 
                 metadata(list): What metadata to retrieve
         """
 
-        true_output = ["qid", "docid", "rank", "score", "query"] + metadata
+        if true_output is None:
+            true_output = ["qid", "docid", "rank", "score", "query"] + metadata
+
         super().__init__(**kwargs, true_output=true_output)
 
         self.indexref = _parse_index_like(index_location)
@@ -395,7 +398,7 @@ class FeaturesBatchRetrieve(BatchRetrieve):
 
         family = 'featurescoring'
         true_output = ["qid", "docid", "docno", "rank", "score", "features"]
-        super().__init__(index_location, controls, properties, family=family, **kwargs, true_output=true_output)
+        super().__init__(index_location, controls, properties, family=family, true_output=true_output, **kwargs)
 
     def transform(self, queries):
         """
