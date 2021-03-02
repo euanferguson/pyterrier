@@ -234,6 +234,9 @@ class TransformerBase:
             # Transformer returns all input columns, along with the minimal output
             # mathematically that is the union of the set of input columns and minimal output columns
             return list(set(inputs) | set(self.minimal_output))
+        if isinstance(self.true_output, types.FunctionType):
+            # Transformer requires some further calculation of return columns
+            return self.true_output(inputs)
         # Else we return the specified true output
         return self.true_output
 
@@ -336,17 +339,24 @@ class SourceTransformer(TransformerBase, Operation):
     def __init__(self, rtr, **kwargs):
         minimal_input = QUERIES
         minimal_output = ["qid", "query_x", "query_y"]
-        super().__init__(operands=[], **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
+
+        def true_output(inputs):
+            if isinstance(inputs, pd.DataFrame):
+                inputs = inputs.columns
+            # We return all columns in minimal output, plus any columns in self.df that are also in input columns
+            return list(set(self.minimal_output) | (set(self.df.columns) & set(inputs)))
+
+        super().__init__(operands=[], **kwargs, minimal_input=minimal_input, minimal_output=minimal_output, true_output=true_output)
         self.operands=[]
         self.df = rtr[0]
         self.df_contains_query = "query" in self.df.columns
         assert "qid" in self.df.columns
 
-    def _calculate_output(self, inputs):
-        if isinstance(inputs, pd.DataFrame):
-            inputs = inputs.columns
-        # We return all columns in minimal output, plus any columns in self.df that are also in input columns
-        return list(set(self.minimal_output) | (set(self.df.columns) & set(inputs)))
+    # def _calculate_output(self, inputs):
+    #     if isinstance(inputs, pd.DataFrame):
+    #         inputs = inputs.columns
+    #     # We return all columns in minimal output, plus any columns in self.df that are also in input columns
+    #     return list(set(self.minimal_output) | (set(self.df.columns) & set(inputs)))
 
     def transform(self, topics):
         assert "qid" in topics.columns
@@ -474,11 +484,12 @@ class SetUnionTransformer(BinaryTransformerBase):
     def __init__(self, operands, **kwargs):
         minimal_input = DOCS
         minimal_output = DOCS
-        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
 
-    def _calculate_output(self, inputs):
-        # We return all input columns except 'score' and 'rank'
-        return list(set(inputs) - {'score', 'rank'})
+        def true_output(inputs):
+            # We return all input columns except 'score' and 'rank'
+            return list(set(inputs) - {'score', 'rank'})
+        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output, true_output=true_output)
+
 
     def transform(self, topics):
         res1 = self.left.transform(topics)
@@ -508,11 +519,12 @@ class SetIntersectionTransformer(BinaryTransformerBase):
     def __init__(self, operands, **kwargs):
         minimal_input = DOCS
         minimal_output = DOCS
-        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
 
-    def _calculate_output(self, inputs):
-        # We return all input columns except 'score' and 'rank'
-        return list(set(inputs) - {'score', 'rank'})
+        def true_output(inputs):
+            # We return all input columns except 'score' and 'rank'
+            return set(inputs) - {'score', 'rank'}
+
+        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output, true_output=true_output)
 
     def transform(self, topics):
         res1 = self.left.transform(topics)

@@ -161,9 +161,9 @@ class TestPipelineValidation(BaseTestCase):
         self.assertSetEqual(set(validate_output), set(transform_output.columns))
 
         # # TODO: Test set intersection on newest version
-        # res_union = BM25 & PL2
-        # validate_output = res_union.validate(topics)
-        # transform_output = res_union.transform(topics)
+        # res_intersection = BM25 & PL2
+        # validate_output = res_intersection.validate(topics)
+        # transform_output = res_intersection.transform(topics)
         # self.assertSetEqual(set(validate_output), set(transform_output.columns))
 
         reranker = ((BM25 % 100 >> PerQueryMaxMinScoreTransformer()) ^ BM25) % 1000
@@ -171,13 +171,12 @@ class TestPipelineValidation(BaseTestCase):
         transform_output = reranker.transform(topics)
         self.assertSetEqual(set(validate_output), set(transform_output.columns))
 
-        # TODO: Test linear combination on newest version
-        # bm25 = pt.BatchRetrieve(indexref, wmodel="BM25") >> PerQueryMaxMinScoreTransformer()
-        # dph = pt.BatchRetrieve(indexref, wmodel="DPH") >> PerQueryMaxMinScoreTransformer()
-        # linear_combine = 0.75 * bm25 + 0.25 * dph
-        # validate_output = linear_combine.validate(topics)
-        # transform_output = linear_combine.transform(topics)
-        # self.assertSetEqual(set(validate_output), set(transform_output.columns))
+        bm25 = pt.BatchRetrieve(indexref, wmodel="BM25") >> PerQueryMaxMinScoreTransformer()
+        dph = pt.BatchRetrieve(indexref, wmodel="DPH") >> PerQueryMaxMinScoreTransformer()
+        linear_combine = 0.75 * bm25 + 0.25 * dph
+        validate_output = linear_combine.validate(topics)
+        transform_output = linear_combine.transform(topics)
+        self.assertSetEqual(set(validate_output), set(transform_output.columns))
 
         # TODO: Test feature union pipeline on newest version
         # pipe = BM25 >> (TF_IDF ** PL2)
