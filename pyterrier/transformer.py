@@ -4,7 +4,7 @@ from matchpy import ReplacementRule, Wildcard, Symbol, Operation, Arity, replace
 from warnings import warn
 import pandas as pd
 from .model import add_ranks, coerce_queries_dataframe, PipelineError, TRANSFORMER_FAMILY, TYPE_SAFETY_LEVEL,\
-    QUERIES, DOCS, RANKED_DOCS, DOCS_FEATURES, RANKED_DOCS_FEATURES
+    QUERIES, DOCS, RANKED_DOCS, RETRIEVAL, RERANKING, QUERY_EXPANSION, QUERY_REWRITE, FEATURE_SCORING
 from . import tqdm
 import deprecation
 
@@ -116,8 +116,21 @@ class TransformerBase:
     """
 
     def __init__(self, **kwargs):
+        """
+            When initialising a transformer we can pass in certain value in order to allow for type checking and
+            pipeline validation
+
+            Arguments:
+             - family : For common transformers, the family can be passed as a constant, allowing for the default
+                    data transformer family types defined in models.py to be used
+            - minimal_input : The list of columns a transformer needs for its transform method to work
+            - minimal_output : The list of columns that a transformer will always output from its transform method
+            - true_output : The list of columns that a transformer actually outputs. This is needed for pipeline
+                    validation, so it is possible to validate the input of one transformer using the output of previous
+        """
         self.family = kwargs.get('family')
 
+        # If family is defined, then we can obtain the minimal input and output from default family mapping
         if self.family:
             self.minimal_input = TRANSFORMER_FAMILY[self.family]['minimal_input']
             self.minimal_output = TRANSFORMER_FAMILY[self.family]['minimal_output']
@@ -224,6 +237,15 @@ class TransformerBase:
             raise TypeError("Could not validate transformer with given input")
 
     def _calculate_output(self, inputs):
+        '''
+            Method for calculating the output columns of a transformer
+
+            We have 4 possible cases:
+                true_output == "minimal_output" - The transformer returns exactly the minimal output columns
+                true_output == "input" - All input columns are passed through the transformer
+                true_output is a function - The output columns must be calculated using the input columns
+                true_output is a list of columns - The output columns are defined literally
+        '''
         if isinstance(inputs, pd.DataFrame):
             inputs = inputs.columns
 
@@ -352,11 +374,6 @@ class SourceTransformer(TransformerBase, Operation):
         self.df_contains_query = "query" in self.df.columns
         assert "qid" in self.df.columns
 
-    # def _calculate_output(self, inputs):
-    #     if isinstance(inputs, pd.DataFrame):
-    #         inputs = inputs.columns
-    #     # We return all columns in minimal output, plus any columns in self.df that are also in input columns
-    #     return list(set(self.minimal_output) | (set(self.df.columns) & set(inputs)))
 
     def transform(self, topics):
         assert "qid" in topics.columns
@@ -665,7 +682,7 @@ class ApplyForEachQuery(ApplyTransformerBase):
             Arguments:
              - fn (Callable): Takes as input a panda Series for a row representing that document, and returns the new float doument score 
         """
-        super().__init__(fn, *args, **kwargs)
+        super().__init__(fn, *args, **kwargs, family=RERANKING, true_output='input')
         self.add_ranks = add_ranks
     
     def transform(self, res):
@@ -692,7 +709,7 @@ class ApplyDocumentScoringTransformer(ApplyTransformerBase):
             Arguments:
              - fn (Callable): Takes as input a panda Series for a row representing that document, and returns the new float doument score 
         """
-        super().__init__(fn, *args, **kwargs)
+        super().__init__(fn, *args, **kwargs, family=RERANKING, true_output='input')
     
     def transform(self, inputRes):
         fn = self.fn
@@ -722,7 +739,7 @@ class ApplyDocFeatureTransformer(ApplyTransformerBase):
             Arguments:
              - fn (Callable): Takes as input a panda Series for a row representing that document, and returns a new numpy array representing the features of that document
         """
-        super().__init__(fn, *args, **kwargs)
+        super().__init__(fn, *args, **kwargs, family=FEATURE_SCORING, true_output=lambda x: list(x) + ['features'])
 
     def transform(self, inputRes):
         fn = self.fn
@@ -757,7 +774,7 @@ class ApplyQueryTransformer(ApplyTransformerBase):
              - fn (Callable): Takes as input a panda Series for a row representing a query, and returns the new string query 
              - verbose (bool): Display a tqdm progress bar for this transformer
         """
-        super().__init__(fn, *args, **kwargs)
+        super().__init__(fn, *args, **kwargs, family=QUERY_REWRITE, true_output='input')
 
     def transform(self, inputRes):
         fn = self.fn
@@ -780,6 +797,9 @@ class ApplyGenericTransformer(ApplyTransformerBase):
     If you are scoring, query rewriting or calculating features, it is advised to use one of the other
     variants.
 
+    It is up to the creator of the generic transformer to pass the necessary keyword arguments in order to allow for
+    pipeline validation
+    
     Example::
         
         # this pipeline would remove all but the first two documents from a result set

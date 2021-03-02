@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from .utils import Utils
 from .transformer import TransformerBase, EstimatorBase
-from .model import add_ranks, PipelineError, DOCS_FEATURES, RANKED_DOCS_FEATURES
+from .model import add_ranks, PipelineError, RERANKING
 import deprecation
 
 def _bold_cols(data, col_type):
@@ -297,7 +297,7 @@ class PerQueryMaxMinScoreTransformer(TransformerBase):
     applies per-query maxmin scaling on the input scores
     '''
     def __init__(self):
-        family = 'reranking'
+        family = RERANKING
         true_output = 'input'
         super().__init__(family=family, true_output=true_output)
     

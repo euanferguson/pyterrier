@@ -2,6 +2,7 @@ import pyterrier as pt
 import pandas as pd
 from .batchretrieve import _parse_index_like
 from .transformer import TransformerBase, Symbol
+from .model import QUERY_REWRITE, QUERY_EXPANSION
 from . import tqdm
 from warnings import warn
 
@@ -20,7 +21,7 @@ class SDM(TransformerBase):
     '''
 
     def __init__(self, verbose = 0, remove_stopwords = True, prox_model = None, **kwargs):
-        family = 'queryrewrite'
+        family = QUERY_REWRITE
         true_output = "minimal_output"
         super().__init__(family=family, true_output=true_output, **kwargs)
         self.verbose = 0
@@ -80,7 +81,7 @@ class QueryExpansion(TransformerBase):
     '''
 
     def __init__(self, index_like, fb_terms=10, fb_docs=3, qeclass="org.terrier.querying.QueryExpansion", verbose=0, properties={}, **kwargs):
-        family = 'queryexpansion'
+        family = QUERY_EXPANSION
         true_output = 'minimal_output'
         super().__init__(family=family, true_output=true_output, **kwargs)
         self.verbose = verbose

@@ -18,6 +18,12 @@ RANKED_DOCS = ["qid", "query", "docno", "score", "rank"]
 DOCS_FEATURES = ["docno", "features"]
 RANKED_DOCS_FEATURES = ["qid", "docno", "score", "rank", "features"]
 
+QUERY_REWRITE = 'queryrewrite'
+RETRIEVAL = 'retrieval'
+QUERY_EXPANSION = 'queryexpansion'
+RERANKING = 'reranking'
+FEATURE_SCORING = 'featurescoring'
+
 TRANSFORMER_FAMILY = {
     'queryrewrite': {
         'minimal_input': QUERIES,
