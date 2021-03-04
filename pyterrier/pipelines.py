@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from .utils import Utils
 from .transformer import TransformerBase, EstimatorBase
-from .model import add_ranks, PipelineError, RERANKING
+from .model import add_ranks, PipelineError, RERANKING, RANKED_DOCS
 import deprecation
 
 def _bold_cols(data, col_type):
@@ -130,17 +130,30 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
     if validate:
         for i, system in enumerate(retr_systems):
             if not isinstance(system, pd.DataFrame):
+                if neednames:
+                    name = str(system)
+                    names.append(name)
+                else:
+                    name = names[i]
+
                 try:
-                    system.validate(topics)
+                    # We first validate to make sure constructed pipelines are valid
+                    output = system.validate(topics)
                 except PipelineError as e:
                     if validate == "WARN":
-                        name = str(system) if neednames else names[i]
                         warn("%s is not a valid pipeline.\n"
                              "Error: %s\n"
                              "Set validate = False to suppress this warning." % (name, str(e)))
                     else:
                         e.message += "\nSet validate = False to suppress this error."
                         raise e
+                finally:
+                    # We then check that all columns are present for experimentation
+                    difference = set(RANKED_DOCS).difference(set(output))
+                    if difference != set():
+                        warn("Cannot perform experiment with %s\n"
+                             "Output %s is missing required column(s) %s." % (name, str(output), str(difference)))
+                        return
 
     for system in retr_systems:
         # if its a DataFrame, use it as the results
@@ -152,9 +165,6 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
             results.append(system.transform(topics))
             endtime = timer()
             times.append( (endtime - starttime) * 1000.)
-            
-        if neednames:
-            names.append(str(system))
 
     qrels_dict = Utils.convert_qrels_to_dict(qrels)
     all_qids = topics["qid"].values
