@@ -151,9 +151,8 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
                     # We then check that all columns are present for experimentation
                     difference = set(RANKED_DOCS).difference(set(output))
                     if difference != set():
-                        warn("Cannot perform experiment with %s\n"
-                             "Output %s is missing required column(s) %s." % (name, str(output), str(difference)))
-                        return
+                        raise TypeError("Cannot perform experiment with %s\n"
+                              "Pipeline outputs %s, which is missing required column(s) %s." % (name, str(output), str(difference)))
 
     for system in retr_systems:
         # if its a DataFrame, use it as the results
