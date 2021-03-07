@@ -151,8 +151,7 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
                     # We then check that all columns are present for experimentation
                     difference = set(RANKED_DOCS).difference(set(output))
                     if difference != set():
-                        raise TypeError("Cannot perform experiment with %s\n"
-                              "Pipeline outputs %s, which is missing required column(s) %s." % (name, str(output), str(difference)))
+                        raise ExperimentError(name, output)
 
     for system in retr_systems:
         # if its a DataFrame, use it as the results
@@ -267,6 +266,26 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
             
         return df 
     return evalDict
+
+
+class ExperimentError(PipelineError):
+    """
+    Exception raised when an pipeline cannot be ran as experiment
+
+    Attributes:
+        t1: The transformer of the unsuitable pipeline
+        bad_input: The output columns that caused the failure
+        message: Explanation of error
+    """
+
+    def __str__(self):
+        return self.message
+
+    def _generate_error_message(self, t1, bad_input, t2=None):
+        msg = "Cannot perform experiment with %s\n " \
+              "pt.Experiment requires columns %s however only receives columns %s"\
+              % (repr(t1), str(RANKED_DOCS), str(bad_input))
+        return msg
 
 
 from .ltr import RegressionTransformer, LTRTransformer
