@@ -468,7 +468,7 @@ class NAryTransformerBase(TransformerBase,Operation):
         try:
             next_input = self.models[0].validate(inputs)
         except TypeError:
-            raise PipelineError(self, inputs, self.models[0])
+            raise PipelineError(self.models[0], inputs)
 
         # In the case where the first transformer of an nary transformer must return a certain type, regardless of
         # further transformers
@@ -478,7 +478,7 @@ class NAryTransformerBase(TransformerBase,Operation):
             except TypeError:
                 raise PipelineError(self, next_input, self.models[0])
 
-        # We can then validate the other transfromer in pipeline, with using the previous transformer output
+        # We can then validate the other transformer in pipeline, with using the previous transformer output
         for i in range(len(self)-1):
             try:
                 next_input = self.models[i+1].validate(next_input)

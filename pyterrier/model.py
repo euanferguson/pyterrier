@@ -61,6 +61,8 @@ class PipelineError(Exception):
 
     def __init__(self, t1, bad_input, t2=None):
         self.t1 = t1
+        if isinstance(bad_input, pd.DataFrame):
+            bad_input = list(bad_input.columns)
         self.bad_input = bad_input
         self.t2 = t2
         self.message = self._generate_error_message(self.t1, bad_input, self.t2)
