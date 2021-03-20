@@ -49,12 +49,12 @@ def setup_java_bridge(jpype):
                 return self
 
             def __next__(self):
-                _iterableposting_next(self)
+                return _iterableposting_next(self)
 
         @_jcustomizer.JImplementationFor('org.terrier.structures.Lexicon')
         class _JLexicon:
             def __getitem__(self, term):
-                _lexicon_getitem(self, term)
+                return _lexicon_getitem(self, term)
 
             def __contains__(self, term):
                 return self.getLexiconEntry(term) is not None
