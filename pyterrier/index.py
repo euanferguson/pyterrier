@@ -511,6 +511,60 @@ class FilesIndexer(Indexer):
             return index.getIndex().getIndexRef()
         return IndexRef.of(self.index_dir + "/data.properties")
 
+
+# We define the methods implementations that both JPype and Pyjnius java interface definitions can use
+def _pythonlistiterator_hasnext(iterator):
+    return iterator.index < iterator.len
+
+
+def _pythonlistiterator_next(iterator):
+    text = iterator.text[iterator.index]
+    meta = iterator.meta.__next__()
+    iterator.index += 1
+    if iterator.convertFn is not None:
+        return iterator.convertFn(text, meta)
+    return [text, meta]
+
+
+def _flatjsondocumentiterator_hasnext(iterator):
+    return iterator._next is not StopIteration
+
+
+def _flatjsondocumentiterator_next(iterator):
+    result = iterator._next
+    iterator._next = next(iterator._it, StopIteration)
+    if result is not StopIteration:
+        return FlatJSONDocument(json.dumps(result))
+    return None
+
+
+def _tqdmcollection_nextdocument(tqdm_collection):
+    rtr = tqdm_collection.collection.nextDocument()
+    filenum = tqdm_collection.collection.getFileNumber()
+    if filenum > tqdm_collection.last:
+        tqdm_collection.pbar.update(filenum - tqdm_collection.last)
+        tqdm_collection.last = filenum
+    return rtr
+
+
+def _tqdmcollection_reset(tqdm_collection):
+    tqdm_collection.pbar.reset()
+    tqdm_collection.collection.reset()
+
+
+def _tqdmcollection_close(tqdm_collection):
+    tqdm_collection.pbar.close()
+    tqdm_collection.collection.close()
+
+
+def _tqdmcollection_endofcollection(tqdm_collection):
+    return tqdm_collection.collection.endOfCollection()
+
+
+def _tqdmcollection_getdocument(tqdm_collection):
+    return tqdm_collection.collection.getDocument()
+
+
 if pt.use_jpype:
     # implement java interfaces using jpype
     from jpype import JImplements, JOverride
@@ -530,16 +584,11 @@ if pt.use_jpype:
 
         @JOverride
         def hasNext(self):
-            return self.index < self.len
+            return _pythonlistiterator_hasnext(self)
 
         @JOverride
         def next(self):
-            text = self.text[self.index]
-            meta = self.meta.__next__()
-            self.index += 1
-            if self.convertFn is not None:
-                return self.convertFn(text, meta)
-            return [text, meta]
+            return _pythonlistiterator_next(self)
 
     @JImplements('java.util.Iterator')
     class FlatJSONDocumentIterator:
@@ -555,15 +604,11 @@ if pt.use_jpype:
 
         @JOverride
         def hasNext(self):
-            return self._next is not StopIteration
+            return _flatjsondocumentiterator_hasnext(self)
 
         @JOverride
         def next(self):
-            result = self._next
-            self._next = next(self._it, StopIteration)
-            if result is not StopIteration:
-                return FlatJSONDocument(json.dumps(result))
-            return None
+            return _flatjsondocumentiterator_next(self)
 
     @JImplements('org.terrier.indexing.Collection')
     class TQDMCollection:
@@ -578,32 +623,25 @@ if pt.use_jpype:
 
         @JOverride
         def nextDocument(self):
-            rtr = self.collection.nextDocument()
-            filenum = self.collection.getFileNumber()
-            if filenum > self.last:
-                self.pbar.update(filenum - self.last)
-                self.last = filenum
-            return rtr
+            return _tqdmcollection_nextdocument(self)
 
         @JOverride
         def reset(self):
-            self.pbar.reset()
-            self.collection.reset()
+            _tqdmcollection_reset(self)
 
         @JOverride
         def close(self):
-            self.pbar.close()
-            self.collection.close()
+            _tqdmcollection_close(self)
 
         @JOverride
         def endOfCollection(self):
-            return self.collection.endOfCollection()
+            return _tqdmcollection_endofcollection(self)
 
         @JOverride
         def getDocument(self):
-            return self.collection.getDocument()
+            return _tqdmcollection_getdocument(self)
 else:
-    # implement java interfaces using jpype
+    # implement java interfaces using pyjnius
     from jnius import PythonJavaClass, java_method
 
     class PythonListIterator(PythonJavaClass):
@@ -632,16 +670,11 @@ else:
 
         @java_method('()Z')
         def hasNext(self):
-            return self.index < self.len
+            return _pythonlistiterator_hasnext(self)
 
         @java_method('()Ljava/lang/Object;')
         def next(self):
-            text = self.text[self.index]
-            meta = self.meta.__next__()
-            self.index += 1
-            if self.convertFn is not None:
-                return self.convertFn(text, meta)
-            return [text, meta]
+            return _pythonlistiterator_next(self)
 
     class FlatJSONDocumentIterator(PythonJavaClass):
         __javainterfaces__ = ['java/util/Iterator']
@@ -666,15 +699,11 @@ else:
 
         @java_method('()Z')
         def hasNext(self):
-            return self._next is not StopIteration
+            return _flatjsondocumentiterator_hasnext(self)
 
         @java_method('()Ljava/lang/Object;')
         def next(self):
-            result = self._next
-            self._next = next(self._it, StopIteration)
-            if result is not StopIteration:
-                return FlatJSONDocument(json.dumps(result))
-            return None
+            return _flatjsondocumentiterator_next(self)
 
     class TQDMCollection(PythonJavaClass):
         __javainterfaces__ = ['org/terrier/indexing/Collection']
@@ -690,27 +719,20 @@ else:
 
         @java_method('()Z')
         def nextDocument(self):
-            rtr = self.collection.nextDocument()
-            filenum = self.collection.FileNumber
-            if filenum > self.last:
-                self.pbar.update(filenum - self.last)
-                self.last = filenum
-            return rtr
+            return _tqdmcollection_nextdocument(self)
 
         @java_method('()V')
         def reset(self):
-            self.pbar.reset()
-            self.collection.reset()
+            _tqdmcollection_reset(self)
 
         @java_method('()V')
         def close(self):
-            self.pbar.close()
-            self.collection.close()
+            _tqdmcollection_close(self)
 
         @java_method('()Z')
         def endOfCollection(self):
-            return self.collection.endOfCollection()
+            return _tqdmcollection_endofcollection(self)
 
         @java_method('()Lorg/terrier/indexing/Document;')
         def getDocument(self):
-            return self.collection.getDocument()
+            return _tqdmcollection_getdocument(self)

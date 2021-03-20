@@ -24,6 +24,22 @@ _logging = logging
 
 
 def setup_java_bridge(jpype):
+
+    def _iterableposting_next(iterable_posting):
+        ''' dunder method for iterating IterablePosting '''
+        nextid = iterable_posting.next()
+        # 2147483647 is IP.EOL. fix this once static fields can be read from instances.
+        if 2147483647 == nextid:
+            raise StopIteration()
+        return iterable_posting
+
+    def _lexicon_getitem(lexicon, term):
+        ''' dunder method for accessing Lexicon '''
+        rtr = lexicon.getLexiconEntry(term)
+        if rtr is None:
+            raise KeyError()
+        return rtr
+
     if jpype:
         from jpype import _jcustomizer
 
@@ -33,21 +49,12 @@ def setup_java_bridge(jpype):
                 return self
 
             def __next__(self):
-                ''' dunder method for iterating IterablePosting '''
-                nextid = self.next()
-                # 2147483647 is IP.EOL. fix this once static fields can be read from instances.
-                if 2147483647 == nextid:
-                    raise StopIteration()
-                return self
+                _iterableposting_next(self)
 
         @_jcustomizer.JImplementationFor('org.terrier.structures.Lexicon')
         class _JLexicon:
             def __getitem__(self, term):
-                ''' dunder method for accessing Lexicon '''
-                rtr = self.getLexiconEntry(term)
-                if rtr is None:
-                    raise KeyError()
-                return rtr
+                _lexicon_getitem(self, term)
 
             def __contains__(self, term):
                 return self.getLexiconEntry(term) is not None
@@ -55,27 +62,12 @@ def setup_java_bridge(jpype):
             def __len__(self):
                 return self.numberOfEntries()
     else:
-        from jnius import protocol_map  # , autoclass
-
-        def _iterableposting_next(self):
-            ''' dunder method for iterating IterablePosting '''
-            nextid = self.next()
-            # 2147483647 is IP.EOL. fix this once static fields can be read from instances.
-            if 2147483647 == nextid:
-                raise StopIteration()
-            return self
+        from jnius import protocol_map
 
         protocol_map["org.terrier.structures.postings.IterablePosting"] = {
             '__iter__': lambda self: self,
             '__next__': lambda self: _iterableposting_next(self)
         }
-
-        def _lexicon_getitem(self, term):
-            ''' dunder method for accessing Lexicon '''
-            rtr = self.getLexiconEntry(term)
-            if rtr is None:
-                raise KeyError()
-            return rtr
 
         protocol_map["org.terrier.structures.Lexicon"] = {
             '__getitem__': _lexicon_getitem,
@@ -138,10 +130,32 @@ def is_binary(f):
     return isinstance(f, (io.RawIOBase, io.BufferedIOBase))
 
 def redirect_stdouterr(jpype):
+
+    def _close(output_streamable):
+        output_streamable.pystream.close()
+
+    def _flush(output_streamable):
+        output_streamable.pystream.flush()
+
+    def _writeByteArray(output_streamable, byteArray):
+        # TODO probably this could be faster.
+        for c in byteArray:
+            output_streamable.writeChar(c)
+
+    def _writeByteArrayIntInt(output_streamable, byteArray, offset, length):
+        # TODO probably this could be faster.
+        for i in range(offset, offset + length):
+            output_streamable.writeChar(byteArray[i])
+
+    def _writeChar(output_streamable, chara):
+        if output_streamable.binary:
+            return output_streamable.pystream.write(bytes([chara]))
+        return output_streamable.pystream.write(chr(chara))
+
+    # TODO: encodings may be a probem here
     if jpype:
         from jpype import JClass, JOverride, JImplements
 
-        # TODO: encodings may be a probem here
         @JImplements("org.terrier.python.OutputStreamable")
         class MyOut:
             def __init__(self, pystream):
@@ -150,41 +164,25 @@ def redirect_stdouterr(jpype):
 
             @JOverride()
             def close(self):
-                self.pystream.close()
+                _close(self)
 
             @JOverride()
             def flush(self):
-                self.pystream.flush()
+                _flush(self)
 
             @JOverride()
             def write(self, *args):
                 # Must implement a method dispatch for overloaded method
                 if len(args) == 1:
                     if isinstance(args[0], int):
-                        return self.writeChar(*args)
+                        return _writeChar(self, *args)
                     else:
-                        self.writeByteArray(*args)
+                        _writeByteArray(self, *args)
                 elif len(args) == 3:
-                    self.writeByteArrayIntInt(*args)
-
-            def writeByteArray(self, byteArray):
-                # TODO probably this could be faster.
-                for c in byteArray:
-                    self.writeChar(c)
-
-            def writeByteArrayIntInt(self, byteArray, offset, length):
-                # TODO probably this could be faster.
-                for i in range(offset, offset + length):
-                    self.writeChar(byteArray[i])
-
-            def writeChar(self, chara):
-                if self.binary:
-                    return self.pystream.write(bytes([chara]))
-                return self.pystream.write(chr(chara))
+                    _writeByteArrayIntInt(self, *args)
     else:
         from jnius import autoclass, PythonJavaClass, java_method
 
-        # TODO: encodings may be a probem here
         class MyOut(PythonJavaClass):
             __javainterfaces__ = ['org.terrier.python.OutputStreamable']
 
@@ -195,29 +193,23 @@ def redirect_stdouterr(jpype):
 
             @java_method('()V')
             def close(self):
-                self.pystream.close()
+                _close(self)
 
             @java_method('()V')
             def flush(self):
-                self.pystream.flush()
+                _flush(self)
 
             @java_method('([B)V', name='write')
             def writeByteArray(self, byteArray):
-                # TODO probably this could be faster.
-                for c in byteArray:
-                    self.writeChar(c)
+                _writeByteArray(self, byteArray)
 
             @java_method('([BII)V', name='write')
             def writeByteArrayIntInt(self, byteArray, offset, length):
-                # TODO probably this could be faster.
-                for i in range(offset, offset + length):
-                    self.writeChar(byteArray[i])
+                _writeByteArrayIntInt(self, byteArray, offset, length)
 
             @java_method('(I)V', name='write')
             def writeChar(self, chara):
-                if self.binary:
-                    return self.pystream.write(bytes([chara]))
-                return self.pystream.write(chr(chara))
+                _writeChar(chara)
 
     # we need to hold lifetime references to stdout_ref/stderr_ref, to ensure
     # they arent GCd. This prevents a crash when Java callsback to  GCd py obj
