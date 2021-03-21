@@ -3,8 +3,9 @@ import types
 from matchpy import ReplacementRule, Wildcard, Symbol, Operation, Arity, replace_all, Pattern, CustomConstraint
 from warnings import warn
 import pandas as pd
-from .model import add_ranks, coerce_queries_dataframe, PipelineError, TRANSFORMER_FAMILY, TYPE_SAFETY_LEVEL,\
-    QUERIES, DOCS, RANKED_DOCS, RETRIEVAL, RERANKING, QUERY_EXPANSION, QUERY_REWRITE, FEATURE_SCORING
+from .model import add_ranks, coerce_queries_dataframe, PipelineError, ValidationError, TRANSFORMER_FAMILY,\
+    TYPE_SAFETY_LEVEL, QUERIES, DOCS, RANKED_DOCS, RETRIEVAL, RERANKING, QUERY_EXPANSION, QUERY_REWRITE, \
+    FEATURE_SCORING, DOCS_FEATURES
 from . import tqdm
 import deprecation
 
@@ -139,23 +140,22 @@ class TransformerBase:
             self.minimal_output = kwargs.get('minimal_output')
 
         # Use type safety level to judge how strictly we need input/output to be defined
-        if not hasattr(self, 'minimal_input'):
+        if self.minimal_input is None:
             if TYPE_SAFETY_LEVEL == 1:
                 print("WARNING: Minimal input not defined for transformer " + repr(self))
             elif TYPE_SAFETY_LEVEL == 2:
                 raise TypeError("Minimal input not defined for transformer " + repr(self))
-        if not hasattr(self, 'minimal_output'):
+        if self.minimal_output is None:
             if TYPE_SAFETY_LEVEL == 1:
                 print("WARNING: Minimal output not defined for transformer " + repr(self))
             elif TYPE_SAFETY_LEVEL == 2:
                 raise TypeError("Minimal output not defined for transformer " + repr(self))
 
         self.true_output = kwargs.get('true_output')
-        if not hasattr(self, 'true_output'):
-            if TYPE_SAFETY_LEVEL == 1:
-                print("WARNING: True output not defined for transformer " + repr(self))
-            elif TYPE_SAFETY_LEVEL == 2:
-                raise TypeError("True output not defined for transformer " + repr(self))
+        if self.true_output is None:
+            # True output defaults to minimal output, as this ties the real behaviour of a transformer most closely
+            # with its theoretical concept
+            self.true_output = self.minimal_output
 
     def transform(self, topics_or_res):
         """
@@ -172,7 +172,7 @@ class TransformerBase:
         """
         docno_provided = "docno" in input.columns
         docid_provided = "docid" in input.columns
-        
+
         if docno_provided or docid_provided:
             queries = input[["qid"]].drop_duplicates()
         else:
@@ -228,6 +228,10 @@ class TransformerBase:
             inputs = ["qid", "query"]
         elif isinstance(inputs, pd.DataFrame):
             inputs = inputs.columns
+
+        # If we cannot validate a transformer because it's type is not set, then we warn the user
+        if not self.minimal_input or not self.minimal_output:
+            raise ValidationError(self, inputs)
 
         # We are validating that the set of input columns is a superset of the set of minimal input columns
         # i.e. all required columns are present
@@ -444,9 +448,12 @@ class NAryTransformerBase(TransformerBase,Operation):
     """
     arity = Arity.polyadic
 
-    def __init__(self, operands, minimal_input=None, **kwargs):
-        if minimal_input:
-            TransformerBase.__init__(self, minimal_input=minimal_input)
+    def __init__(self, operands, minimal_input=[], minimal_output=[], **kwargs):
+        def true_output(inputs):
+            return self.models[-1]._calculate_output(self.models[0]._calculate_output(inputs))
+
+        TransformerBase.__init__(self, minimal_input=minimal_input, minimal_output=minimal_output,
+                                 true_output=true_output)
         Operation.__init__(self, operands=operands)
         models = operands
         self.models = list( map(lambda x : get_transformer(x), models) )
@@ -472,7 +479,7 @@ class NAryTransformerBase(TransformerBase,Operation):
 
         # In the case where the first transformer of an nary transformer must return a certain type, regardless of
         # further transformers
-        if hasattr(self, "minimal_input"):
+        if self.minimal_input:
             try:
                 super().validate(next_input)
             except TypeError:
@@ -839,7 +846,8 @@ class FeatureUnionPipeline(NAryTransformerBase):
 
     def __init__(self, operands, **kwargs):
         minimal_input = DOCS
-        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input)
+        minimal_output = DOCS_FEATURES
+        super().__init__(operands=operands, **kwargs, minimal_input=minimal_input, minimal_output=minimal_output)
 
     def transform(self, inputRes):
         if not "docno" in inputRes.columns and "docid" in inputRes.columns:

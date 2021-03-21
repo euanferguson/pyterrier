@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from .utils import Utils
 from .transformer import TransformerBase, EstimatorBase
-from .model import add_ranks, PipelineError, RERANKING, RANKED_DOCS
+from .model import add_ranks, PipelineError, ValidationError, RERANKING, RANKED_DOCS
 import deprecation
 
 def _bold_cols(data, col_type):
@@ -129,17 +129,23 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
 
     if validate:
         for i, system in enumerate(retr_systems):
-            if not isinstance(system, pd.DataFrame):
-                if neednames:
-                    name = str(system)
-                    names.append(name)
-                else:
-                    name = names[i]
+            if neednames:
+                name = str(system)
+                names.append(name)
+            else:
+                name = names[i]
 
+            if not isinstance(system, pd.DataFrame):
                 try:
                     # We first validate to make sure constructed pipelines are valid
                     output = system.validate(topics)
+
+                    # We then check that all columns are present for experimentation
+                    difference = set(RANKED_DOCS).difference(set(output))
+                    if difference != set():
+                        raise ExperimentError(name, output)
                 except PipelineError as e:
+                    # system is an invalid pipeline
                     if validate == "WARN":
                         warn("%s is not a valid pipeline.\n"
                              "Error: %s\n"
@@ -147,11 +153,14 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
                     else:
                         e.message += "\nSet validate = False to suppress this error."
                         raise e
-                finally:
-                    # We then check that all columns are present for experimentation
-                    difference = set(RANKED_DOCS).difference(set(output))
-                    if difference != set():
-                        raise ExperimentError(name, output)
+                except ValidationError as e:
+                    # system cannot be validated
+                    if validate == "WARN":
+                        warn("%s cannot be validated.\n"
+                             "Set validate = False to suppress this warning." % name)
+                    else:
+                        e.message += "\nSet validate = False to suppress this error."
+                        raise e
 
     for system in retr_systems:
         # if its a DataFrame, use it as the results
@@ -177,7 +186,7 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
         eval_metrics.remove("mrt")
     for name,res,time in zip(names, results, times):
         evalMeasuresDict = Utils.evaluate(res, qrels_dict, metrics=eval_metrics, perquery=perquery or baseline is not None)
-        
+
         if perquery or baseline is not None:
             # this ensures that all queries are present in various dictionaries
             # its equivalent to "trec_eval -c"
