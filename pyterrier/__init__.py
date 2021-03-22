@@ -18,6 +18,7 @@ pipelines = None
 rewrite = None
 text = None
 transformer = None
+validation = None
 
 file_path = os.path.dirname(os.path.abspath(__file__))
 firstInit = False
@@ -122,7 +123,8 @@ def init(version=None, mem=None, packages=[], jvm_opts=[], redirect_io=True, log
     globals()["JObject"] = JObject
     globals()["ApplicationSetup"] = ApplicationSetup
 
-    for sub_module_name in ['anserini', 'apply', 'cache', 'index', 'io', 'model', 'new', 'ltr', 'pipelines', 'rewrite', 'text', 'transformer']:
+    for sub_module_name in ['anserini', 'apply', 'cache', 'index', 'io', 'model', 'new', 'ltr', 'pipelines', 'rewrite', 'text', 'transformer',
+                            'validation']:
         globals()[sub_module_name] = importlib.import_module('.' + sub_module_name, package='pyterrier') 
 
     # append the python helpers

@@ -4,8 +4,8 @@ import numpy as np
 from . import tqdm
 from warnings import warn
 from .index import Indexer
-from .transformer import TransformerBase, Symbol
-from .model import coerce_queries_dataframe, FIRST_RANK, QUERIES, DOCS, RANKED_DOCS, RETRIEVAL, FEATURE_SCORING
+from .transformer import TransformerBase, Symbol, Family
+from .model import coerce_queries_dataframe, FIRST_RANK, QUERIES, DOCS, RANKED_DOCS
 import deprecation
 
 # import time
@@ -50,7 +50,7 @@ class BatchRetrieveBase(TransformerBase, Symbol):
     Attributes:
         verbose(bool): If True transform method will display progress
     """
-    def __init__(self, verbose=0, family=RETRIEVAL, **kwargs):
+    def __init__(self, verbose=0, family=Family.RETRIEVAL, **kwargs):
         super().__init__(**kwargs, family=family)
         self.verbose = verbose
 
@@ -396,7 +396,7 @@ class FeaturesBatchRetrieve(BatchRetrieve):
         if "wmodel" in controls:
             self.wmodel = controls["wmodel"]
 
-        family = FEATURE_SCORING
+        family = Family.FEATURE_SCORING
         true_output = ["qid", "docid", "docno", "rank", "score", "features"]
         super().__init__(index_location, controls, properties, family=family, true_output=true_output, **kwargs)
 

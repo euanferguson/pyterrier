@@ -1,9 +1,10 @@
 import pyterrier as pt
 import unittest
 import pandas as pd
-from pyterrier.model import PipelineError, ValidationError, RETRIEVAL, RANKED_DOCS
+from pyterrier.model import QUERIES
+from pyterrier.validation import PipelineError, ValidationError
 from pyterrier.pipelines import PerQueryMaxMinScoreTransformer
-from pyterrier.transformer import TransformerBase
+from pyterrier.transformer import TransformerBase, Family
 
 from .base import BaseTestCase
 
@@ -195,20 +196,25 @@ class TestPipelineValidation(BaseTestCase):
         self.assertRaises(ValidationError, pipe.validate, queries)
 
     def test_custom_transformer_validate(self):
-        # A custom transformer should by default minimal output as its true output
+        # A custom transformer should by default use minimal output as its true output, gotten from family
         class CustomTransformer1(TransformerBase):
             def __init__(self):
-                super().__init__(family=RETRIEVAL)
+                super().__init__(family=Family.RETRIEVAL)
 
-            def transform(self, topics):
+            def transform(self, t):
                 return pd.DataFrame([["q1", "q1", "d1", "s1", "r1"]], columns=["qid", "query", "docno", "score", "rank"])
 
-        topics = pd.DataFrame([["q1", "q1"], ["q2", "q1"]], columns=["qid", "query"])
-        custom_transformer1 = CustomTransformer1()
-        self.assertSetEqual(set(custom_transformer1.validate(topics)), set(custom_transformer1.transform(topics)))
+        # A custom transformer should use minimal output as true output, if defined literally
+        class CustomTransformer2(TransformerBase):
+            def __init__(self):
+                super().__init__(minimal_input=QUERIES, minimal_output=QUERIES + ["url"])
+
+            def transform(self, t):
+                t["url"] = "location." + t.qid
+                return t
 
         # A transformer should be able to take a function as its minimal output, and use that to validate
-        class CustomTransformer2(TransformerBase):
+        class CustomTransformer3(TransformerBase):
             def __init__(self):
                 def output(inputs):
                     if isinstance(inputs, pd.DataFrame):
@@ -217,15 +223,22 @@ class TestPipelineValidation(BaseTestCase):
 
                 super().__init__(minimal_input=["qid", "query"], minimal_output=output)
 
-            def transform(self, topics):
-                return topics
+            def transform(self, t):
+                return t
+
+        topics = pd.DataFrame([["q1", "q1"], ["q2", "q1"]], columns=["qid", "query"])
+        custom_transformer1 = CustomTransformer1()
+        self.assertSetEqual(set(custom_transformer1.validate(topics)), set(custom_transformer1.transform(topics)))
+
+        custom_transformer2 = CustomTransformer2()
+        self.assertSetEqual(set(custom_transformer2.validate(topics)), set(custom_transformer2.transform(topics)))
 
         topics = pd.DataFrame([["q1", "q1", "url1", "d1"], ["q2", "q1", "url1", "d1"]],
                                columns=["qid", "query", "url", "docno"])
 
-        custom_transformer2 = CustomTransformer2()
-        validate_output = custom_transformer2.validate(topics)
-        transform_output = custom_transformer2.transform(topics)
+        custom_transformer3 = CustomTransformer3()
+        validate_output = custom_transformer3.validate(topics)
+        transform_output = custom_transformer3.transform(topics)
         self.assertSetEqual(set(validate_output), set(transform_output.columns))
 
 

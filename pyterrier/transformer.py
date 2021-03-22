@@ -1,13 +1,19 @@
-
 import types
 from matchpy import ReplacementRule, Wildcard, Symbol, Operation, Arity, replace_all, Pattern, CustomConstraint
 from warnings import warn
 import pandas as pd
-from .model import add_ranks, coerce_queries_dataframe, PipelineError, ValidationError, TRANSFORMER_FAMILY,\
-    TYPE_SAFETY_LEVEL, QUERIES, DOCS, RANKED_DOCS, RETRIEVAL, RERANKING, QUERY_EXPANSION, QUERY_REWRITE, \
-    FEATURE_SCORING, DOCS_FEATURES
+from .model import add_ranks,  QUERIES, DOCS, RANKED_DOCS, DOCS_FEATURES
+from .validation import PipelineError, ValidationError, TRANSFORMER_FAMILY, TYPE_SAFETY_LEVEL
 from . import tqdm
 import deprecation
+
+
+class Family:
+    QUERY_REWRITE = 'queryrewrite'
+    RETRIEVAL = 'retrieval'
+    QUERY_EXPANSION = 'queryexpansion'
+    RERANKING = 'reranking'
+    FEATURE_SCORING = 'featurescoring'
 
 LAMBDA = lambda:0
 def is_lambda(v):
@@ -689,7 +695,7 @@ class ApplyForEachQuery(ApplyTransformerBase):
             Arguments:
              - fn (Callable): Takes as input a panda Series for a row representing that document, and returns the new float doument score 
         """
-        super().__init__(fn, *args, **kwargs, family=RERANKING, true_output='input')
+        super().__init__(fn, *args, **kwargs, family=Family.RERANKING, true_output='input')
         self.add_ranks = add_ranks
     
     def transform(self, res):
@@ -716,7 +722,7 @@ class ApplyDocumentScoringTransformer(ApplyTransformerBase):
             Arguments:
              - fn (Callable): Takes as input a panda Series for a row representing that document, and returns the new float doument score 
         """
-        super().__init__(fn, *args, **kwargs, family=RERANKING, true_output='input')
+        super().__init__(fn, *args, **kwargs, family=Family.RERANKING, true_output='input')
     
     def transform(self, inputRes):
         fn = self.fn
@@ -746,7 +752,7 @@ class ApplyDocFeatureTransformer(ApplyTransformerBase):
             Arguments:
              - fn (Callable): Takes as input a panda Series for a row representing that document, and returns a new numpy array representing the features of that document
         """
-        super().__init__(fn, *args, **kwargs, family=FEATURE_SCORING, true_output=lambda x: list(x) + ['features'])
+        super().__init__(fn, *args, **kwargs, family=Family.FEATURE_SCORING, true_output=lambda x: list(x) + ['features'])
 
     def transform(self, inputRes):
         fn = self.fn
@@ -781,7 +787,7 @@ class ApplyQueryTransformer(ApplyTransformerBase):
              - fn (Callable): Takes as input a panda Series for a row representing a query, and returns the new string query 
              - verbose (bool): Display a tqdm progress bar for this transformer
         """
-        super().__init__(fn, *args, **kwargs, family=QUERY_REWRITE, true_output='input')
+        super().__init__(fn, *args, **kwargs, family=Family.QUERY_REWRITE, true_output='input')
 
     def transform(self, inputRes):
         fn = self.fn
