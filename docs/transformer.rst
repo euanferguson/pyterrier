@@ -39,6 +39,12 @@ When `fit()` is called on a pipeline, all estimators (transformers that also hav
 `EstimatorBase`) within the pipeline are fitted, in turn. This allows one (or more) stages of learning to be 
 integrated into a retrieval pipeline.
 
+
+Validation
+==========
+There is some notion of typing for transformers, based on how they change the columns of input dataframes. 
+This allows for constructed pipelines to be checked for correctness. See :ref:`pt.validation` for more details. 
+
 Transformer base classes
 ========================
 

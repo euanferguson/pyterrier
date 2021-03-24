@@ -68,8 +68,8 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
             if `highlight="color"` or `"colour"`, then the cell with the highest metric value will have a green background.
         round(int): How many decimal places to round each measure value to. This can be a dictionary mapping measure name to number of decimal places.
             Default is None, which is no rounding.
-        validate(bool/str) : Define the strictness level of transformer validation
-            if False do not validate, if "WARN" validate and print warning, if True validate and throw PipelineError
+        validate(bool/str) : Define how strictly we validate given transformers in retr_systems.
+            if False do not validate, if "WARN" validate and print warning, if True validate and throw PipelineError. Default="WARN"
 
     Returns:
         A Dataframe with each retrieval system with each metric evaluated.

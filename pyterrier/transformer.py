@@ -128,12 +128,12 @@ class TransformerBase:
             pipeline validation
 
             Arguments:
-             - family : For common transformers, the family can be passed as a constant, allowing for the default
-                    data transformer family types defined in models.py to be used
-            - minimal_input : The list of columns a transformer needs for its transform method to work
-            - minimal_output : The list of columns that a transformer will always output from its transform method
-            - true_output : The list of columns that a transformer actually outputs. This is needed for pipeline
-                    validation, so it is possible to validate the input of one transformer using the output of previous
+             - family(str): For common transformers, the family can be passed as a constant, allowing for the default
+                    data transformer family types defined in validation.py to be used
+             - minimal_input([str]): The list of columns a transformer needs for its transform method to work
+             - minimal_output([str]): The list of columns that a transformer will always output from its transform method
+             - true_output([str]): The list of columns that a transformer actually outputs. Defaults to be the same as
+                minimal_output
         """
         self.family = kwargs.get('family')
 

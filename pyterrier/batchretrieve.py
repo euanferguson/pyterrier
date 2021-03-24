@@ -266,6 +266,7 @@ class TextIndexProcessor(TransformerBase):
     '''
 
     def __init__(self, innerclass, takes="queries", returns="docs", body_attr="body", background_index=None, verbose=False, **kwargs):
+        """"""
         minimal_input = DOCS + [body_attr]
         minimal_output = RANKED_DOCS if returns == "docs" else QUERIES
         true_output = "minimal_output" if returns == "docs" else RANKED_DOCS + ["docid"]

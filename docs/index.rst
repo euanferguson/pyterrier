@@ -20,6 +20,7 @@ Welcome to PyTerrier's documentation!
    datamodel.md
    transformer
    operators
+   validation
    pipeline_examples.md
    text
    neural
