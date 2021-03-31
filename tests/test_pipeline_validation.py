@@ -3,7 +3,7 @@ import unittest
 import pandas as pd
 from pyterrier.model import QUERIES
 from pyterrier.validation import PipelineError, ValidationError
-from pyterrier.pipelines import PerQueryMaxMinScoreTransformer
+from pyterrier.pipelines import PerQueryMaxMinScoreTransformer, ExperimentError
 from pyterrier.transformer import TransformerBase, Family
 
 from .base import BaseTestCase
@@ -140,7 +140,6 @@ class TestPipelineValidation(BaseTestCase):
         feature_scoring_into_reranking = featurescoring >> reranking
         feature_scoring_into_reranking.validate(ranked_docs)
 
-
     def test_validate_returns_correct_columns(self):
         # For some example pipelines given in the PyTerrier docs, we test that when validating the correct columns are
         # returned
@@ -159,12 +158,6 @@ class TestPipelineValidation(BaseTestCase):
         validate_output = res_union.validate(topics)
         transform_output = res_union.transform(topics)
         self.assertSetEqual(set(validate_output), set(transform_output.columns))
-
-        # # TODO: Test set intersection on newest version
-        # res_intersection = BM25 & PL2
-        # validate_output = res_intersection.validate(topics)
-        # transform_output = res_intersection.transform(topics)
-        # self.assertSetEqual(set(validate_output), set(transform_output.columns))
 
         reranker = ((BM25 % 100 >> PerQueryMaxMinScoreTransformer()) ^ BM25) % 1000
         validate_output = reranker.validate(topics)
@@ -240,6 +233,22 @@ class TestPipelineValidation(BaseTestCase):
         validate_output = custom_transformer3.validate(topics)
         transform_output = custom_transformer3.transform(topics)
         self.assertSetEqual(set(validate_output), set(transform_output.columns))
+
+    def test_experiment_auto_validates(self):
+        indexref, queries = TestPipelineValidation.get_index_and_queries()
+
+        generic = pt.apply.generic(lambda res: res[res["rank"] < 2])
+        rewrite = pt.rewrite.SDM()
+        invalid_pipeline = rewrite | rewrite
+
+        # A pipeline that cannot be validated should raise ValidationError if validate is True
+        self.assertRaises(ValidationError, pt.Experiment, [generic], queries, [], ["map"], validate=True)
+
+        # A given invalid pipeline should raise PipelineError if validate is True
+        self.assertRaises(PipelineError, pt.Experiment, [invalid_pipeline], queries, [], ["map"], validate=True)
+
+        # A given pipeline that cannot be experimented on should raise ExperimentError by default
+        self.assertRaises(ExperimentError, pt.Experiment, [rewrite], queries, [], ["map"], validate=True)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from .utils import Utils
 from .transformer import TransformerBase, EstimatorBase, Family
-from .validation import  PipelineError, ValidationError
+from .validation import PipelineError, ValidationError
 from .model import add_ranks, RANKED_DOCS
 import deprecation
 
@@ -128,40 +128,39 @@ def Experiment(retr_systems, topics, qrels, eval_metrics, names=None, perquery=F
     elif len(names) != len(retr_systems):
         raise ValueError("names should be the same length as retr_systems")
 
-    if validate:
-        for i, system in enumerate(retr_systems):
-            if neednames:
-                name = str(system)
-                names.append(name)
-            else:
-                name = names[i]
+    for i, system in enumerate(retr_systems):
+        if neednames:
+            name = str(system)
+            names.append(name)
+        else:
+            name = names[i]
 
-            if not isinstance(system, pd.DataFrame):
-                try:
-                    # We first validate to make sure constructed pipelines are valid
-                    output = system.validate(topics)
+        if not isinstance(system, pd.DataFrame):
+            try:
+                # We first validate to make sure constructed pipelines are valid
+                output = system.validate(topics)
 
-                    # We then check that all columns are present for experimentation
-                    difference = set(RANKED_DOCS).difference(set(output))
-                    if difference != set():
-                        raise ExperimentError(name, output)
-                except PipelineError as e:
-                    # system is an invalid pipeline
-                    if validate == "WARN":
-                        warn("%s is not a valid pipeline.\n"
-                             "Error: %s\n"
-                             "Set validate = False to suppress this warning." % (name, str(e)))
-                    else:
-                        e.message += "\nSet validate = False to suppress this error."
-                        raise e
-                except ValidationError as e:
-                    # system cannot be validated
-                    if validate == "WARN":
-                        warn("%s cannot be validated.\n"
-                             "Set validate = False to suppress this warning." % name)
-                    else:
-                        e.message += "\nSet validate = False to suppress this error."
-                        raise e
+                # We then check that all columns are present for experimentation
+                difference = set(RANKED_DOCS).difference(set(output))
+                if difference != set():
+                    raise ExperimentError(name, output)
+            except PipelineError as e:
+                # system is an invalid pipeline
+                if validate == "WARN":
+                    warn("%s is not a valid pipeline.\n"
+                         "Error: %s\n"
+                         "Set validate = False to suppress this warning." % (name, str(e)))
+                elif validate:
+                    e.message += "\nSet validate = False to suppress this error."
+                    raise e
+            except ValidationError as e:
+                # system cannot be validated
+                if validate == "WARN":
+                    warn("%s cannot be validated.\n"
+                         "Set validate = False to suppress this warning." % name)
+                elif validate:
+                    e.message += "\nSet validate = False to suppress this error."
+                    raise e
 
     for system in retr_systems:
         # if its a DataFrame, use it as the results
